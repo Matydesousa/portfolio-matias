@@ -1,0 +1,118 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { profile, experience } from '../data/profile';
+import { projects } from '../data/projects';
+---
+
+<Layout>
+  <main id="contenido" class="container">
+    <section class="intro" aria-labelledby="intro-title">
+      <p class="eyebrow">Desarrollo de software</p>
+      <h1 id="intro-title" aria-label="Matías De Sousa">
+        {['Matías', 'De', 'Sousa'].map((word, wordIndex) => (
+          <>
+            <span class="title-word" aria-hidden="true">
+              {Array.from(word).map((letter, index) => (
+                <span
+                  class="intro-letter"
+                  style={`--letter:${wordIndex * 7 + index}`}
+                >
+                  {letter}
+                </span>
+              ))}
+            </span>
+            {wordIndex < 2 ? (
+              ' '
+            ) : (
+              <span class="accent" aria-hidden="true">
+                .
+              </span>
+            )}
+          </>
+        ))}
+      </h1>
+      <p class="intro-description">
+        Desarrollo aplicaciones y sistemas de gestión con PHP, Laravel y MySQL.
+        Estudio Ingeniería Informática en UADE.
+      </p>
+      <p class="availability">Oportunidades remotas y proyectos freelance.</p>
+    </section>
+    <section id="proyectos" class="projects" aria-labelledby="projects-title">
+      <div class="list-heading">
+        <h2 id="projects-title">Proyectos públicos</h2>
+        <span>{projects.length} proyectos</span>
+      </div>
+      <ul class="repository-list">
+        {projects.map((project) => (
+          <li>
+            <a
+              class="repository-link"
+              href={`/proyectos/${project.slug}/`}
+              aria-labelledby={`title-${project.slug}`}
+            >
+              <img
+                class="repository-thumbnail"
+                src={project.thumbnail}
+                alt={project.thumbnailAlt}
+                width="160"
+                height="112"
+                loading="lazy"
+              />
+              <div class="repository-info">
+                <p class="repository-category">{project.category}</p>
+                <h3 id={`title-${project.slug}`}>{project.title}</h3>
+                <p class="repository-summary">{project.summary}</p>
+                <p class="repository-stack">
+                  {project.stack.slice(0, 3).join(' · ')}
+                </p>
+              </div>
+              <span class="repository-action" aria-hidden="true">
+                Ver detalle
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+    <section class="about" id="sobre-mi" aria-labelledby="about-title">
+      <h2 id="about-title">Sobre mí</h2>
+      <p>
+        Soy técnico informático en el Ejército Argentino, con experiencia en
+        desarrollo y mantenimiento de sistemas internos. Participo en OAX
+        Sistemas, desarrollando soluciones para comercios y empresas.
+      </p>
+      <details>
+        <summary>Experiencia y formación</summary>
+        <div class="experience-list">
+          {experience.map((item) => (
+            <div>
+              <h3>{item.organization}</h3>
+              <p>
+                {item.role}. {item.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </details>
+      <p class="development">
+        <strong>En desarrollo: Adminanzas.</strong> Mi proyecto personal de
+        administración financiera colaborativa con Laravel, Inertia y React.
+      </p>
+    </section>
+    <section class="contact" id="contacto" aria-labelledby="contact-title">
+      <div>
+        <h2 id="contact-title">Hablemos</h2>
+        <p>¿Un proyecto o una oportunidad? Podés escribirme.</p>
+      </div>
+      <div class="contact-links">
+        <a href={`mailto:${profile.email}`}>{profile.email}</a>
+        <a href={profile.linkedin} target="_blank" rel="noopener noreferrer">
+          LinkedIn<span class="sr-only"> (abre en otra pestaña)</span>
+        </a>
+        <a href={profile.github} target="_blank" rel="noopener noreferrer">
+          GitHub<span class="sr-only"> (abre en otra pestaña)</span>
+        </a>
+      </div>
+    </section>
+  </main>
+</Layout>
