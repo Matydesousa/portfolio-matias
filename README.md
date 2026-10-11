@@ -45,6 +45,7 @@ src/
   scripts/scroll-depth.ts     Entradas 3D vinculadas al avance del scroll
   scripts/page-arrival.ts     Entrada de contenido y ensamblado por interacción
   scripts/scene.ts            Geometría, proyección e iluminación 3D
+  scripts/scene-worker.ts     Dibujo móvil en segundo plano con OffscreenCanvas
   scripts/sculpture-fragments.ts Fragmentos irregulares de la escultura
   scripts/scene-physics.ts    Velocidad angular e inercia con fricción
   scripts/discoveries.ts      Detalles visuales para descubrir al interactuar
@@ -70,6 +71,8 @@ Las galerías reúnen 20 imágenes entre las vistas principales y adicionales, c
 - **Contacto:** pulsar el texto del correo lo copia y muestra una confirmación accesible en ambos idiomas, sin botón ni icono separados. Funciona con clic, toque, Enter y espacio, usando el portapapeles del navegador (HTTPS o localhost). Si falla, selecciona el correo y explica cómo copiarlo manualmente. El href mailto original se conserva para clics modificados y navegación sin JavaScript. LinkedIn y GitHub mantienen sus enlaces. No hay formularios ni CV descargable; el usuario mantiene esa información en LinkedIn.
 
 ## Animaciones e interacción
+
+La escena se prepara únicamente cuando está visible y los efectos están habilitados. Los valores fijos de las piezas y las órbitas se reutilizan. En pantallas pequeñas o táctiles se conserva la forma con una malla compacta de 144 piezas y una frecuencia de dibujo de aproximadamente 20 fps; escritorio mantiene las 384 piezas y la interacción de mayor frecuencia. En dispositivos táctiles con `transferControlToOffscreen`, un Web Worker dibuja la escena sin ocupar el hilo de navegación. Solo se permite un cuadro pendiente para evitar acumulación de trabajo. Sin esa API se utiliza la misma escena compacta en el hilo principal; si falla el worker se oculta la decoración y el contenido sigue disponible. La pausa, el movimiento reducido y la suspensión fuera de pantalla siguen vigentes. No se agregaron dependencias.
 
 Todas las vistas comparten una cinta ovalada 3D antes del pie de página, con los cinco proyectos y sus enlaces reales en el idioma activo. En los detalles reemplaza la navegación inferior de todos los proyectos/siguiente; la última parada del recorrido presenta el acceso a los proyectos, con un mensaje válido también en la vista simple. Se acerca al contenido y aprovecha el ancho habitual de la página. Las tarjetas conservan sus proporciones y siguen la tangente del óvalo; 48 segmentos forman una superficie continua con profundidad. No hay títulos, explicaciones ni botones visibles.
 
@@ -173,7 +176,7 @@ La cinta mantiene el giro durante las visitas guiadas, incluso si se pausa el av
 
 ## Dominio, SEO y despliegue
 
-El sitio está publicado en **[portfolio-matias.matydesousa.workers.dev](https://portfolio-matias.matydesousa.workers.dev/)** mediante Cloudflare Workers con archivos estáticos. El código fuente está disponible en GitHub; todavía no hay un dominio propio conectado. Tiene títulos y descripciones por página, metadatos Open Graph/X y favicon. Las vistas previas `public/images/social-preview-es.png` y `social-preview-en.png` son imágenes de 1200 × 630 con tipografía, azul marino y geometría acordes al sitio. Su diseño se conserva en `scripts/render-social-preview.mjs`; para regenerarlas, ejecutar `node scripts/render-social-preview.mjs` con Chromium instalado para Playwright o con `PLAYWRIGHT_BROWSER_PATH` definido como en las pruebas.
+El sitio está publicado en **[portfolio.matydesousa.workers.dev](https://portfolio.matydesousa.workers.dev/)** mediante Cloudflare Workers con archivos estáticos. El código fuente está disponible en GitHub; todavía no hay un dominio propio conectado. Tiene títulos y descripciones por página, metadatos Open Graph/X y favicon. Las vistas previas `public/images/social-preview-es.png` y `social-preview-en.png` son imágenes de 1200 × 630 con tipografía, azul marino y geometría acordes al sitio. Su diseño se conserva en `scripts/render-social-preview.mjs`; para regenerarlas, ejecutar `node scripts/render-social-preview.mjs` con Chromium instalado para Playwright o con `PLAYWRIGHT_BROWSER_PATH` definido como en las pruebas.
 
 Al elegir el hosting, definir `PUBLIC_SITE_URL` con su URL HTTPS real, incluso si todavía es la dirección inicial del proveedor. Se puede configurar en el hosting o copiar `.env.example` a `.env`; también se leen las variantes `.env.production` y `.env.development`. La variable del entorno tiene prioridad. Debe ser una URL raíz sin credenciales, subcarpetas, parámetros ni fragmentos; una configuración inválida detiene la compilación con un mensaje explicativo. No se publica un dominio inventado.
 
@@ -185,7 +188,7 @@ La publicación actual sirve exclusivamente archivos estáticos, sin adaptador d
 
 ### Cloudflare Workers con archivos estáticos
 
-`wrangler.jsonc` prepara la publicación de `dist` en el Worker `portfolio-matias`. No utiliza código de servidor ni bindings de base de datos. La configuración conserva las rutas de Astro, sirve la página de error con HTTP 404 y desactiva las URLs de vista previa de versiones. `.wrangler/` permanece fuera de Git.
+`wrangler.jsonc` prepara la publicación de `dist` en el Worker `portfolio`. No utiliza código de servidor ni bindings de base de datos. La configuración conserva las rutas de Astro, sirve la página de error con HTTP 404 y desactiva las URLs de vista previa de versiones. `.wrangler/` permanece fuera de Git.
 
 La herramienta de despliegue se ejecuta con una versión fijada, sin añadir dependencias de producción. Iniciar sesión en Cloudflare desde el navegador:
 
@@ -196,7 +199,7 @@ npm.cmd exec --yes --package=wrangler@4.149.0 -- wrangler login --scopes account
 En una nueva copia local, crear `.env.production` con esta dirección real (el archivo permanece fuera de Git):
 
 ```dotenv
-PUBLIC_SITE_URL=https://portfolio-matias.matydesousa.workers.dev/
+PUBLIC_SITE_URL=https://portfolio.matydesousa.workers.dev/
 ```
 
 Actualizar ese valor al conectar un dominio propio. Para comprobar la configuración sin subir archivos:
@@ -213,6 +216,23 @@ npm.cmd exec --yes --package=wrangler@4.149.0 -- wrangler deploy --autoconfig=fa
 ```
 
 Wrangler vuelve a ejecutar `npm run build` antes de desplegar, por lo que la configuración de URL debe estar disponible también en ese proceso. Tras publicar, verificar la dirección real, el sitemap, robots, las rutas ES/EN, los recursos y HTTP 404. La publicación por CLI no conecta automáticamente el repositorio a Workers Builds: un push a GitHub todavía requiere ejecutar el despliegue para actualizar la web. Al conectar Workers Builds, configurar también `PUBLIC_SITE_URL` en sus variables de compilación.
+
+### Activar publicación automática desde GitHub
+
+En el Worker existente `portfolio`, abrir Settings > Builds > Connect y autorizar la aplicación de Cloudflare en GitHub únicamente para `Matydesousa/portfolio-matias`. La autorización se completa personalmente desde el navegador; no copiar credenciales al repositorio.
+
+Configurar estos valores:
+
+| Ajuste                                    | Valor                                                  |
+| ----------------------------------------- | ------------------------------------------------------ |
+| Repositorio                               | `Matydesousa/portfolio-matias`                         |
+| Rama de producción                        | `main`                                                 |
+| Directorio raíz                           | Raíz del repositorio (`/`)                             |
+| Build command                             | `npm run build:ci`                                     |
+| Deploy command                            | `npx --yes wrangler@4.149.0 deploy --autoconfig=false` |
+| Variable de compilación `PUBLIC_SITE_URL` | `https://portfolio.matydesousa.workers.dev/`           |
+
+`build:ci` comprueba los tipos y compila antes de publicar. Workers Builds no utiliza el bloque `build` de Wrangler como sustituto del comando de compilación del panel. Conservar deshabilitadas las publicaciones de otras ramas si solo se desea publicar `main`. Después de conectar, comprobar que la primera compilación termina correctamente y corresponde al commit esperado; solo entonces considerar activo el despliegue automático. [Configuración oficial de Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/).
 
 Para un dominio propio: agregar el dominio en el proveedor elegido, aplicar los registros DNS indicados por ese proveedor y comprobar HTTPS y redirección a una única versión del dominio. Si se usa GitHub Pages bajo una subcarpeta, configurar `base` en Astro y adaptar los enlaces/rutas de recursos; la versión actual está preparada para la raíz de un dominio.
 
