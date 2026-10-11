@@ -226,7 +226,7 @@ Para publicar:
 npm.cmd exec --yes --package=wrangler@4.149.0 -- wrangler deploy --autoconfig=false
 ```
 
-Wrangler vuelve a ejecutar `npm run build` antes de desplegar, por lo que la configuración de URL debe estar disponible también en ese proceso. Tras publicar, verificar la dirección real, el sitemap, robots, las rutas ES/EN, los recursos y HTTP 404. La publicación por CLI no conecta automáticamente el repositorio a Workers Builds. La conexión de este portfolio con `main` ya quedó configurada en el panel; falta verificar la primera compilación automática tras un push. Conservar `PUBLIC_SITE_URL` en las variables de compilación de Workers Builds.
+Wrangler vuelve a ejecutar `npm run build` antes de desplegar, por lo que la configuración de URL debe estar disponible también en ese proceso. Tras publicar, verificar la dirección real, el sitemap, robots, las rutas ES/EN, los recursos y HTTP 404. La publicación por CLI no conecta automáticamente el repositorio a Workers Builds. Este portfolio ya tiene esa conexión activa con `main`: el despliegue automático del commit `567ae7c` se verificó el 2026-10-11, con la versión nueva activa y sus archivos disponibles por HTTPS. Los próximos pushes a `main` iniciarán la compilación y publicación; revisar el resultado de “Workers Builds: portfolio” en GitHub. Conservar `PUBLIC_SITE_URL` en las variables de compilación de Workers Builds.
 
 ### Activar publicación automática desde GitHub
 
