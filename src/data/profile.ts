@@ -4,7 +4,7 @@ export const profile = {
   github: 'https://github.com/Matydesousa',
   linkedin: 'https://www.linkedin.com/in/matias-de-sousa-0aa180426',
   description:
-    'Desarrollo de software y sistemas de gestión. Matías De Sousa, estudiante de Ingeniería Informática en UADE. PHP, Laravel y MySQL. Proyectos y contacto.',
+    'Matías De Sousa, Full Stack Developer y estudiante de Ingeniería Informática en UADE. Desarrollo de aplicaciones web y sistemas de gestión. Proyectos y contacto.',
   about: [
     'Me interesa cómo el software puede hacer más claro el trabajo de todos los días: organizar información, conectar procesos y simplificar la gestión.',
     'Mi experiencia principal está en PHP, Laravel y MySQL. Combino el desarrollo y mantenimiento de sistemas internos con proyectos personales, soluciones para comercios y mi formación en Ingeniería Informática.',
