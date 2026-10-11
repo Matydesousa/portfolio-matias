@@ -29,7 +29,6 @@ const caption = project.caption ?? t.defaultCaption;
       {t.backProjects}
     </a>
     <header class="case-header">
-      <SculptureControl locale={locale} />
       <p class="eyebrow">
         {project.number} / {project.category}
       </p>
@@ -100,6 +99,7 @@ const caption = project.caption ?? t.defaultCaption;
           {t.tourProject} <span aria-hidden="true">↗</span>
         </button>
       </div>
+      <SculptureControl locale={locale} />
     </header>
     {image && (
       <figure class="project-figure case-image">

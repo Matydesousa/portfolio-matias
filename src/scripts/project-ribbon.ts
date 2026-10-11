@@ -27,6 +27,7 @@ export function initializeProjectRibbon() {
   let lastFrame = 0;
   let lastPaint = 0;
   let suppressClick = false;
+  let keyboardFocus = false;
   let tilt = 0;
   const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
   let drag: {
@@ -39,7 +40,10 @@ export function initializeProjectRibbon() {
     active: boolean;
   } | null = null;
   // A tour can return focus to the section itself without selecting a card.
-  const focusInside = () => viewport.contains(document.activeElement);
+  const focusInside = () =>
+    viewport.contains(document.activeElement) &&
+    (keyboardFocus ||
+      Boolean(document.activeElement?.matches(':focus-visible')));
   const motionAllowed = () =>
     !reduced.matches && document.documentElement.dataset.motion !== 'off';
   const available = () =>
@@ -77,6 +81,10 @@ export function initializeProjectRibbon() {
         cosine = Math.cos(angle);
       // Tangent orientation keeps cards rigid instead of stretching an entire ring.
       const normal = Math.atan2(radiusZ * sine, radiusX * cosine);
+      // Explicit culling also works on WebKit ports that flatten nested 3D
+      // layers. Opacity keeps back cards in the keyboard/accessibility order.
+      slot.dataset.facing = Math.cos(normal) > 0.06 ? 'front' : 'back';
+      slot.style.zIndex = String(100 + Math.round(cosine * 100));
       slot.style.transform =
         'translate3d(' +
         radiusX * sine +
@@ -185,7 +193,11 @@ export function initializeProjectRibbon() {
       }
       viewport.removeAttribute('aria-describedby');
       track.style.removeProperty('transform');
-      slots.forEach((slot) => slot.style.removeProperty('transform'));
+      slots.forEach((slot) => {
+        slot.style.removeProperty('transform');
+        slot.style.removeProperty('z-index');
+        delete slot.dataset.facing;
+      });
       status.textContent = '';
       suppressClick = false;
     }
@@ -225,11 +237,14 @@ export function initializeProjectRibbon() {
     });
     const cardWidth = cards[0].offsetWidth;
     const cardHeight = Math.max(...cards.map((card) => card.offsetHeight));
+    const compact = viewport.clientWidth < 660;
     radiusX = Math.max(
-      cardWidth * 0.85,
+      cardWidth * (compact ? 0.74 : 0.85),
       (viewport.clientWidth - cardWidth * 0.24) / 2,
     );
-    radiusZ = Math.min(210, Math.max(110, radiusX * 0.48));
+    radiusZ = compact
+      ? Math.max(72, Math.min(110, radiusX * 0.42))
+      : Math.min(210, Math.max(110, radiusX * 0.48));
     cycle = 2 * Math.PI * radiusX;
     physics.position = previous ? (physics.position * cycle) / previous : 0;
     const rise = radiusZ * Math.sin((10 * Math.PI) / 180);
@@ -290,6 +305,7 @@ export function initializeProjectRibbon() {
     pointer.targetX = pointer.targetY = 0;
   });
   viewport.addEventListener('pointerdown', (event) => {
+    keyboardFocus = false;
     if (!enhanced) {
       suppressClick = false;
       return;
@@ -391,6 +407,8 @@ export function initializeProjectRibbon() {
     true,
   );
   viewport.addEventListener('keydown', (event) => {
+    keyboardFocus = true;
+    sync();
     if (!enhanced) return;
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if ([' ', 'Enter'].includes(event.key) && event.target === viewport) {
@@ -424,6 +442,7 @@ export function initializeProjectRibbon() {
   });
   ribbon.addEventListener('focusin', (event) => {
     if (!enhanced) return;
+    if (!focusInside()) return;
     physics.stop();
     resetPointer();
     const card = (event.target as Element).closest<HTMLElement>('.ribbon-card');
@@ -432,6 +451,13 @@ export function initializeProjectRibbon() {
     paint();
     sync();
   });
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === 'Tab') keyboardFocus = true;
+    },
+    true,
+  );
   ribbon.addEventListener('focusout', () =>
     queueMicrotask(() => {
       wrap();

@@ -25,6 +25,29 @@ export function initializeDiscoveries() {
     !reduced.matches &&
     !document.hidden &&
     !document.querySelector('dialog[open]');
+  const touchDiscoveries = new Map<Element, () => void>();
+  const visibleThumbnails = new Set<Element>();
+  let touchSettling: ReturnType<typeof setTimeout> | undefined;
+  function refreshTouchDiscoveries() {
+    cancelWait(touchSettling);
+    if (finePointer.matches || !active()) return;
+    // Hover discoveries become quiet arrivals once native touch scrolling stops.
+    touchSettling = wait(() => {
+      visibleThumbnails.forEach((thumbnail) =>
+        touchDiscoveries.get(thumbnail)?.(),
+      );
+    }, 160);
+  }
+  const thumbnailObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.intersectionRatio >= 0.7) visibleThumbnails.add(entry.target);
+        else visibleThumbnails.delete(entry.target);
+      });
+      refreshTouchDiscoveries();
+    },
+    { threshold: [0, 0.7] },
+  );
 
   function animate(
     element: Element,
@@ -155,6 +178,17 @@ export function initializeDiscoveries() {
     );
     if (index >= 0) wave(index);
   });
+  title?.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.pointerType !== 'touch' || !event.isPrimary) return;
+      const index = Array.from(letters ?? []).indexOf(
+        event.target as HTMLElement,
+      );
+      if (index >= 0) wave(index);
+    },
+    { passive: true },
+  );
   spark?.addEventListener('focus', () => wave((letters?.length ?? 1) - 1));
   spark?.addEventListener('click', () => {
     if (!active()) return;
@@ -187,6 +221,52 @@ export function initializeDiscoveries() {
     if (window.getSelection()?.toString()) return;
     constellation(event.clientX, event.clientY);
   });
+  let blankTouch: { id: number; x: number; y: number } | undefined;
+  let blankTap = { time: 0, x: 0, y: 0 };
+  window.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (
+        event.pointerType !== 'touch' ||
+        !event.isPrimary ||
+        !emptySurface(event.target)
+      )
+        return;
+      blankTouch = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    },
+    { passive: true },
+  );
+  window.addEventListener(
+    'pointerup',
+    (event) => {
+      if (blankTouch?.id !== event.pointerId) return;
+      const start = blankTouch;
+      blankTouch = undefined;
+      if (
+        !emptySurface(event.target) ||
+        Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8
+      )
+        return;
+      const now = performance.now();
+      if (
+        blankTap.time &&
+        now - blankTap.time < 350 &&
+        Math.hypot(event.clientX - blankTap.x, event.clientY - blankTap.y) < 24
+      ) {
+        constellation(event.clientX, event.clientY);
+        blankTap.time = 0;
+      } else blankTap = { time: now, x: event.clientX, y: event.clientY };
+    },
+    { passive: true },
+  );
+  window.addEventListener(
+    'pointercancel',
+    () => {
+      blankTouch = undefined;
+      blankTap.time = 0;
+    },
+    { passive: true },
+  );
 
   document
     .querySelectorAll<HTMLAnchorElement>('.repository-link')
@@ -240,6 +320,8 @@ export function initializeDiscoveries() {
       link.addEventListener('focus', discover);
       link.addEventListener('blur', reset);
       link.addEventListener('click', reset);
+      touchDiscoveries.set(thumbnail, discover);
+      thumbnailObserver.observe(thumbnail);
       // Reset closure references as well as removing temporary DOM.
       resets.push(reset);
     });
@@ -584,6 +666,7 @@ export function initializeDiscoveries() {
         ?.querySelector<HTMLElement>('[data-tech-label]');
       if (label) label.hidden = available;
     });
+    refreshTouchDiscoveries();
   }
   new MutationObserver(configure).observe(root, {
     attributes: true,
@@ -605,6 +688,9 @@ export function initializeDiscoveries() {
     () => {
       clear();
       resets.forEach((reset) => reset());
+      blankTouch = undefined;
+      blankTap.time = 0;
+      refreshTouchDiscoveries();
     },
     { passive: true },
   );
@@ -613,6 +699,7 @@ export function initializeDiscoveries() {
     () => {
       clear();
       resets.forEach((reset) => reset());
+      refreshTouchDiscoveries();
     },
     { passive: true },
   );

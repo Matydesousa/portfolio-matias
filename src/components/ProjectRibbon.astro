@@ -294,6 +294,10 @@ const t = getUI(locale);
   .project-ribbon[data-enhanced] .ribbon-card {
     backface-visibility: hidden;
   }
+  .project-ribbon[data-enhanced] .ribbon-group li[data-facing='back'] {
+    opacity: 0;
+    pointer-events: none;
+  }
   .project-ribbon[data-enhanced] .ribbon-surface {
     display: block;
     position: absolute;
@@ -447,6 +451,20 @@ const t = getUI(locale);
     }
     .project-ribbon:not([data-enhanced]) .ribbon-group {
       grid-template-columns: 1fr;
+    }
+    .project-ribbon[data-enhanced] .ribbon-viewport {
+      /* Extra clearance for the upper/lower edge while dragging or rotating. */
+      height: calc(var(--ring-height) + 24px);
+    }
+    .project-ribbon[data-enhanced] .ribbon-card {
+      min-height: 180px;
+      padding: 16px 16px 34px;
+    }
+    .ribbon-card h3 {
+      font-size: 0.9375rem;
+    }
+    .ribbon-card p {
+      font-size: 0.75rem;
     }
   }
 </style>

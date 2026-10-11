@@ -112,6 +112,9 @@ export function initializeMotion() {
     y: 0,
     distance: 0,
     time: 0,
+    startX: 0,
+    startY: 0,
+    active: false,
   };
   let suppressClick = false;
   let assemblyActivation = false;
@@ -125,10 +128,12 @@ export function initializeMotion() {
     const total = root.scrollHeight - innerHeight;
     scroll = total > 0 ? window.scrollY / total : 0;
     progress?.style.setProperty('--progress', String(scroll));
-    const parallax =
-      enabled && finePointer.matches
-        ? Math.min(32, Math.max(0, window.scrollY * 0.035))
-        : 0;
+    const parallax = enabled
+      ? Math.min(
+          finePointer.matches ? 32 : 14,
+          Math.max(0, window.scrollY * 0.035),
+        )
+      : 0;
     atmosphere?.style.setProperty('--ambient-shift', `${parallax}px`);
     if (anchor) {
       const bounds = anchor.getBoundingClientRect();
@@ -136,13 +141,15 @@ export function initializeMotion() {
       scene.y = bounds.top + bounds.height / 2 + parallax * 0.6;
       scene.scale = bounds.width * 0.37;
       scene.opacity =
-        width < 700
-          ? 0.06
-          : width < 1100
-            ? 0.12
-            : anchor.closest('.case-header')
-              ? 0.14
-              : 0.32;
+        !handle?.hidden && !finePointer.matches
+          ? 0.18
+          : width < 700
+            ? 0.06
+            : width < 1100
+              ? 0.12
+              : anchor.closest('.case-header')
+                ? 0.14
+                : 0.32;
     }
     if (enabled && !document.hidden && !frame && sceneVisible()) {
       lastFrame = performance.now();
@@ -161,7 +168,9 @@ export function initializeMotion() {
   }
 
   function resize() {
-    cancelDrag();
+    // Safari's address bar changes viewport height during native scrolling.
+    // Preserve momentum for that change; rotation/layout changes still cancel.
+    if (width !== innerWidth) cancelDrag();
     width = innerWidth;
     height = innerHeight;
     ratio = Math.min(devicePixelRatio || 1, 1.5);
@@ -180,6 +189,7 @@ export function initializeMotion() {
     const pointerId = drag.pointerId;
     if (pointerId !== null) suppressClick = true;
     drag.pointerId = null;
+    drag.active = false;
     handle?.removeAttribute('data-dragging');
     root.removeAttribute('data-scene-dragging');
     if (pointerId !== null && handle?.hasPointerCapture(pointerId))
@@ -196,8 +206,8 @@ export function initializeMotion() {
     // Keep the decorative object from intercepting text on narrow/zoomed layouts.
     const available =
       enabled &&
-      finePointer.matches &&
-      width >= 1100 &&
+      ((finePointer.matches && width >= 1100) ||
+        (!finePointer.matches && width < 1100)) &&
       parseFloat(getComputedStyle(root).fontSize) <= 20;
     if (!available) {
       cancelDrag();
@@ -216,18 +226,11 @@ export function initializeMotion() {
   }
 
   handle?.addEventListener('pointerdown', (event) => {
-    if (
-      !enabled ||
-      !finePointer.matches ||
-      event.pointerType === 'touch' ||
-      event.button !== 0 ||
-      !event.isPrimary ||
-      handle.hidden
-    )
+    if (!enabled || event.button !== 0 || !event.isPrimary || handle.hidden)
       return;
-    event.preventDefault();
+    if (event.pointerType === 'mouse') event.preventDefault();
     physics.stop();
-    handle.focus({ preventScroll: true });
+    if (event.pointerType === 'mouse') handle.focus({ preventScroll: true });
     suppressClick = false;
     assemblyActivation = arrival.isAssemblyTrigger(event);
     drag.pointerId = event.pointerId;
@@ -235,14 +238,32 @@ export function initializeMotion() {
     drag.y = event.clientY;
     drag.distance = 0;
     drag.time = event.timeStamp;
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.active = event.pointerType === 'mouse';
     pointer.x = pointer.targetX;
     pointer.y = pointer.targetY;
-    handle.setPointerCapture(event.pointerId);
-    handle.dataset.dragging = 'true';
-    root.dataset.sceneDragging = 'true';
+    if (drag.active) {
+      handle.setPointerCapture(event.pointerId);
+      handle.dataset.dragging = 'true';
+      root.dataset.sceneDragging = 'true';
+    }
   });
   handle?.addEventListener('pointermove', (event) => {
     if (drag.pointerId !== event.pointerId) return;
+    if (!drag.active) {
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+        cancelDrag();
+        return;
+      }
+      if (Math.abs(dx) < 7) return;
+      drag.active = true;
+      handle.setPointerCapture(event.pointerId);
+      handle.dataset.dragging = 'true';
+      root.dataset.sceneDragging = 'true';
+    }
     const dx = event.clientX - drag.x,
       dy = event.clientY - drag.y;
     drag.distance += Math.hypot(dx, dy);
@@ -251,7 +272,7 @@ export function initializeMotion() {
     drag.y = event.clientY;
     drag.time = event.timeStamp;
   });
-  handle?.addEventListener('pointerup', (event) => {
+  window.addEventListener('pointerup', (event) => {
     if (drag.pointerId !== event.pointerId) return;
     const moved = drag.distance > 4;
     endDrag();
@@ -327,7 +348,9 @@ export function initializeMotion() {
     if (
       elapsed <
       (compact
-        ? 48
+        ? drag.active || physics.moving || arrival.assembling
+          ? 32
+          : 48
         : arrival.assembling || drag.pointerId !== null || physics.moving
           ? 15
           : 32)
@@ -403,6 +426,7 @@ export function initializeMotion() {
       row.style.removeProperty('--magnet-x');
       row.style.removeProperty('--magnet-y');
       row.removeAttribute('data-pointer');
+      row.removeAttribute('data-touch');
     };
     resets.push(reset);
     row.addEventListener('pointerenter', () => {
@@ -440,6 +464,20 @@ export function initializeMotion() {
       });
     });
     row.addEventListener('pointerleave', reset);
+    row.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (!enabled || event.pointerType !== 'touch' || !event.isPrimary)
+          return;
+        const bounds = row.getBoundingClientRect();
+        row.style.setProperty('--spot-x', `${event.clientX - bounds.left}px`);
+        row.style.setProperty('--spot-y', `${event.clientY - bounds.top}px`);
+        row.dataset.touch = '';
+      },
+      { passive: true },
+    );
+    row.addEventListener('pointerup', reset);
+    row.addEventListener('pointercancel', reset);
     window.addEventListener('scroll', reset, { passive: true });
   });
 

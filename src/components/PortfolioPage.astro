@@ -18,7 +18,6 @@ const experience = getExperience(locale);
 <Layout locale={locale} tour={getPortfolioTour(locale)}>
   <main id="contenido" class="container">
     <section class="intro" aria-labelledby="intro-title">
-      <SculptureControl locale={locale} />
       <p class="eyebrow">Full Stack Developer</p>
       <h1 id="intro-title" aria-label="Matías De Sousa">
         {['Matías', 'De', 'Sousa'].map((word, wordIndex) => (
@@ -65,6 +64,7 @@ const experience = getExperience(locale);
       >
         {t.tourPortfolio} <span aria-hidden="true">↗</span>
       </button>
+      <SculptureControl locale={locale} />
     </section>
     <section id="proyectos" class="projects" aria-labelledby="projects-title">
       <div class="list-heading">
