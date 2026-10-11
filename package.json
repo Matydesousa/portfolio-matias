@@ -10,6 +10,7 @@
     "build:ci": "npm run check && npm run build",
     "preview": "astro preview --host 127.0.0.1 --port 4321",
     "test:e2e": "playwright test",
+    "test:mobile": "npm run build && playwright test --config=playwright.mobile.config.ts",
     "test:publication": "node scripts/verify-publication.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
