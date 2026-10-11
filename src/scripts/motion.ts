@@ -3,18 +3,67 @@ import { RotationPhysics } from './scene-physics';
 import { getUI, documentLocale } from '../i18n/ui';
 import { initializeScrollDepth } from './scroll-depth';
 import { createPageArrival } from './page-arrival';
+import type { SceneWorkerMessage } from './scene-worker';
 
 /** Progressive enhancement: all content and links work without this module. */
 export function initializeMotion() {
   const t = getUI(documentLocale());
   const canvas = document.querySelector<HTMLCanvasElement>('.ambient-canvas');
-  const context = canvas?.getContext('2d');
   const toggle = document.querySelector<HTMLButtonElement>('.motion-toggle');
-  if (!canvas || !context || !toggle) return;
+  if (!canvas || !toggle) return;
 
   const root = document.documentElement;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+  const useWorker =
+    !finePointer.matches &&
+    typeof Worker !== 'undefined' &&
+    'transferControlToOffscreen' in canvas;
+  const context = useWorker ? null : canvas.getContext('2d');
+  if (!useWorker && !context) return;
+  if (context) canvas.dataset.renderer = 'main';
+  let sceneWorker: Worker | undefined;
+  let workerBusy = false;
+  let workerFailed = false;
+  let ratio = 1;
+  function sendScene(
+    message: SceneWorkerMessage,
+    transfer: Transferable[] = [],
+  ) {
+    sceneWorker?.postMessage(message, transfer);
+  }
+  function clearScene() {
+    if (sceneWorker) sendScene({ type: 'clear' });
+    else context?.clearRect(0, 0, width, height);
+  }
+  function startSceneWorker() {
+    if (sceneWorker || workerFailed) return;
+    try {
+      sceneWorker = new Worker(new URL('./scene-worker.ts', import.meta.url), {
+        type: 'module',
+      });
+      sceneWorker.addEventListener('message', () => {
+        workerBusy = false;
+        canvas!.dataset.renderer = 'worker';
+      });
+      sceneWorker.addEventListener('error', (event) => {
+        // Decorative enhancement may disappear; content and controls still work.
+        event.preventDefault();
+        workerFailed = true;
+        sceneWorker?.terminate();
+        sceneWorker = undefined;
+        canvas!.hidden = true;
+      });
+      const offscreen = canvas!.transferControlToOffscreen();
+      sendScene({ type: 'init', canvas: offscreen }, [offscreen]);
+      sendScene({ type: 'resize', width, height, ratio });
+    } catch {
+      workerFailed = true;
+      sceneWorker?.terminate();
+      sceneWorker = undefined;
+      canvas!.hidden = true;
+    }
+  }
   const progress = document.querySelector<HTMLElement>('.reading-progress');
   const atmosphere = document.querySelector<HTMLElement>('.ambient-atmosphere');
   const pulse = atmosphere?.querySelector<HTMLElement>('.ambient-pulse');
@@ -42,7 +91,10 @@ export function initializeMotion() {
   let height = 0;
   let scroll = 0;
   const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
-  const drawSculpture = createSculpture();
+  // Build only when a visible, enabled scene actually needs its first frame.
+  // Reduced motion and a saved pause never pay for the decorative mesh.
+  let drawSculpture: ReturnType<typeof createSculpture> | undefined;
+  let compactScene = false;
   const arrival = createPageArrival(canvas);
   const anchor = document.querySelector<HTMLElement>('.scene-anchor');
   const handle = anchor?.querySelector<HTMLButtonElement>('.scene-handle');
@@ -112,10 +164,13 @@ export function initializeMotion() {
     cancelDrag();
     width = innerWidth;
     height = innerHeight;
-    const ratio = Math.min(devicePixelRatio || 1, 1.5);
-    canvas!.width = Math.round(width * ratio);
-    canvas!.height = Math.round(height * ratio);
-    context!.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ratio = Math.min(devicePixelRatio || 1, 1.5);
+    if (sceneWorker) sendScene({ type: 'resize', width, height, ratio });
+    else if (!workerFailed) {
+      canvas!.width = Math.round(width * ratio);
+      canvas!.height = Math.round(height * ratio);
+      context?.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
     updateNavigationClearance();
     updateProgress();
     configureHandle();
@@ -259,19 +314,23 @@ export function initializeMotion() {
   });
 
   function draw(timestamp: number) {
-    if (!enabled || document.hidden || !sceneVisible()) {
-      context!.clearRect(0, 0, width, height);
+    if (!enabled || document.hidden || !sceneVisible() || workerFailed) {
+      clearScene();
       frame = 0;
       return;
     }
     frame = requestAnimationFrame(draw);
-    // Rest at 30 fps; dragging or fast inertia uses 60 fps.
+    // Background motion is slower on small/touch screens; direct manipulation
+    // keeps the higher frame rate on desktop.
+    const compact = width < 700 || !finePointer.matches;
     const elapsed = timestamp - lastFrame;
     if (
       elapsed <
-      (arrival.assembling || drag.pointerId !== null || physics.moving
-        ? 15
-        : 32)
+      (compact
+        ? 48
+        : arrival.assembling || drag.pointerId !== null || physics.moving
+          ? 15
+          : 32)
     )
       return;
     interaction.assembly = arrival.progress(timestamp);
@@ -283,11 +342,34 @@ export function initializeMotion() {
     interaction.yaw = physics.yaw;
     interaction.pitch = physics.pitch;
     lastFrame = timestamp;
-    const ctx = context!;
-    ctx.clearRect(0, 0, width, height);
     pointer.x += (pointer.targetX - pointer.x) * 0.055;
     pointer.y += (pointer.targetY - pointer.y) * 0.055;
     if (sceneVisible()) {
+      if (useWorker) {
+        startSceneWorker();
+        if (sceneWorker && !workerBusy) {
+          workerBusy = true;
+          sendScene({
+            type: 'render',
+            time,
+            x: scene.x + pointer.x * 12,
+            y: scene.y + Math.sin(interaction.rotationTime * 0.7) * 8,
+            scale: scene.scale,
+            pointerX: pointer.x,
+            pointerY: pointer.y,
+            opacity: scene.opacity,
+            compact,
+            interaction,
+          });
+        }
+        return;
+      }
+      const ctx = context!;
+      ctx.clearRect(0, 0, width, height);
+      if (!drawSculpture || compactScene !== compact) {
+        drawSculpture = createSculpture({ compact });
+        compactScene = compact;
+      }
       drawSculpture(
         ctx,
         time,
@@ -385,7 +467,7 @@ export function initializeMotion() {
     } else if (!enabled) {
       cancelAnimationFrame(frame);
       frame = 0;
-      context!.clearRect(0, 0, width, height);
+      clearScene();
       resets.forEach((reset) => reset());
       resetAtmosphere();
     }

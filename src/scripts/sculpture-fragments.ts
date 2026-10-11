@@ -23,8 +23,8 @@ export function createSculptureFragments(
   faces: MeshFace[],
   segments: number,
   sides: number,
+  count = 384,
 ) {
-  const count = 384;
   const neighbours = faces.map(() => [] as number[]);
   const edgeOwners = new Map<string, number>();
   const edgeKey = (a: number, b: number) =>
@@ -48,6 +48,9 @@ export function createSculptureFragments(
     v: (Math.floor(i / 2) % sides) + (i % 2 ? 2 / 3 : 1 / 3),
   }));
   const nearest = new Float64Array(faces.length).fill(Infinity);
+  // The jitter belongs to each face, not to a seed. Reuse it across all 384
+  // passes instead of evaluating the same sine hundreds of thousands of times.
+  const weights = coordinates.map((_, index) => 0.85 + noise(index) * 0.3);
   const seeds: number[] = [];
   let candidate = 87;
   for (let piece = 0; piece < count; piece++) {
@@ -62,7 +65,7 @@ export function createSculptureFragments(
         (Math.min(du, segments - du) * 0.85) ** 2 +
           Math.min(dv, sides - dv) ** 2,
       );
-      const score = nearest[index] * (0.85 + noise(index) * 0.3);
+      const score = nearest[index] * weights[index];
       if (score > furthest) {
         furthest = score;
         candidate = index;

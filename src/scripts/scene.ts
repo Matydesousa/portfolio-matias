@@ -41,9 +41,11 @@ const curve = (t: number): Vector => ({
 });
 
 /** A small, precomputed torus-knot mesh. Canvas projects and lights real 3D vertices. */
-export function createSculpture() {
-  const segments = 96;
-  const sides = 8;
+export function createSculpture({ compact = false } = {}) {
+  // Narrow/touch screens show a much smaller, translucent background scene.
+  // Keep the curve and lighting while spending fewer triangles on that scene.
+  const segments = compact ? 48 : 96;
+  const sides = compact ? 6 : 8;
   const vertices: Vertex[] = [];
   const faces: Face[] = [];
   for (let ring = 0; ring < segments; ring++) {
@@ -104,11 +106,27 @@ export function createSculpture() {
     }
   }
 
-  const pieces = createSculptureFragments(vertices, faces, segments, sides);
+  const pieces = createSculptureFragments(
+    vertices,
+    faces,
+    segments,
+    sides,
+    compact ? 144 : 384,
+  );
+  const orbitPaths = [0, 1].map((orbit) =>
+    Array.from({ length: 81 }, (_, i) => {
+      const angle = (i / 80) * tau;
+      return {
+        x: 1.72 * Math.cos(angle),
+        y: Math.sin(angle) * (orbit ? 0.8 : 0.15),
+        z: Math.sin(angle) * (orbit ? 0.2 : 1.05),
+      };
+    }),
+  );
   let orbitSnapshot: number | null = null;
 
   return function render(
-    ctx: CanvasRenderingContext2D,
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     time: number,
     centerX: number,
     centerY: number,
@@ -192,7 +210,11 @@ export function createSculpture() {
     }
 
     ctx.globalAlpha = opacity;
-    const projected = vertices.map((vertex) => project(rotate(vertex.point)));
+    // Fragmented frames already project every needed vertex below.
+    const projected =
+      assembly === 1
+        ? vertices.map((vertex) => project(rotate(vertex.point)))
+        : null;
     const fragments =
       assembly < 1
         ? pieces.map((piece) => {
@@ -260,8 +282,8 @@ export function createSculpture() {
     const visibleFaces = faces
       .map((face) => {
         const fragment = fragments?.[face.piece];
-        const points = face.vertices.map(
-          (i) => fragment?.points.get(i) ?? projected[i],
+        const points = face.vertices.map((i) =>
+          fragment ? fragment.points.get(i)! : projected![i],
         );
         return {
           ...face,
@@ -273,6 +295,7 @@ export function createSculpture() {
       })
       .filter((face) => face.light.z > -0.12);
     fragments?.forEach((fragment, index) => {
+      if (fragment.distance === 0) return;
       pieces[index].caps.forEach((cap) => {
         const light = rotate(fragment.turn(cap.normal));
         if (light.z <= -0.12) return;
@@ -333,16 +356,7 @@ export function createSculpture() {
     // Orbital paths and moving lights are projected from the same 3D space.
     ctx.globalAlpha = opacity;
     for (let orbit = 0; orbit < 2; orbit++) {
-      const path = Array.from({ length: 81 }, (_, i) => {
-        const angle = (i / 80) * tau;
-        return project(
-          rotate({
-            x: 1.72 * Math.cos(angle),
-            y: Math.sin(angle) * (orbit ? 0.8 : 0.15),
-            z: Math.sin(angle) * (orbit ? 0.2 : 1.05),
-          }),
-        );
-      });
+      const path = orbitPaths[orbit].map((point) => project(rotate(point)));
       ctx.strokeStyle = orbit ? '#8dcfff36' : '#80bfff60';
       ctx.lineWidth = 0.75;
       ctx.beginPath();

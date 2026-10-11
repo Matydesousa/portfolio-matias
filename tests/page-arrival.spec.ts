@@ -1,6 +1,123 @@
 import { test, expect } from '@playwright/test';
 import { createSculpture } from '../src/scripts/scene';
 
+test('móvil dibuja en segundo plano y pausa sin impedir recorridos ni navegación', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto('http://127.0.0.1:4321/');
+    const canvas = page.locator('.ambient-canvas');
+    await expect(canvas).toHaveAttribute('data-renderer', 'worker');
+    expect(page.workers()).toHaveLength(1);
+    await page.locator('.motion-toggle').click();
+    await expect(canvas).toBeHidden();
+    await page.locator('.motion-toggle').click();
+    await expect(canvas).toBeVisible();
+    await page.getByRole('button', { name: 'Recorrer el portfolio' }).click();
+    await expect(page.locator('#page-tour')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.locator('.repository-link').first().click();
+    await expect(page).toHaveURL(/proyectos\/oax-demo\/$/);
+    await expect(page.locator('.ambient-canvas')).toHaveAttribute(
+      'data-renderer',
+      'worker',
+    );
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(390);
+  } finally {
+    await context.close();
+  }
+});
+
+test('móvil sin OffscreenCanvas conserva la escena compacta y con pausa no crea workers', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      delete (HTMLCanvasElement.prototype as Partial<HTMLCanvasElement>)
+        .transferControlToOffscreen;
+    });
+    await page.goto('http://127.0.0.1:4321/');
+    await expect(page.locator('.ambient-canvas')).toHaveAttribute(
+      'data-renderer',
+      'main',
+    );
+    await expect(page.locator('.ambient-canvas')).toHaveAttribute(
+      'data-assembly',
+      'waiting',
+    );
+    expect(page.workers()).toHaveLength(0);
+    await page.locator('.motion-toggle').click();
+    await page.reload();
+    await expect(page.locator('.ambient-canvas')).toBeHidden();
+    expect(page.workers()).toHaveLength(0);
+    await expect(page.locator('h1')).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('la escena compacta conserva piezas con volumen y dos órbitas con menos superficies', () => {
+  const sample = (compact: boolean, assembly: number) => {
+    let surfaces = 0;
+    let orbits = 0;
+    const points: number[] = [];
+    const ctx = {
+      save() {},
+      restore() {},
+      fillRect() {},
+      fill() {},
+      stroke() {},
+      ellipse() {},
+      arc() {
+        orbits++;
+      },
+      createRadialGradient() {
+        return { addColorStop() {} };
+      },
+      beginPath() {},
+      moveTo(x: number, y: number) {
+        points.push(x, y);
+      },
+      lineTo(x: number, y: number) {
+        points.push(x, y);
+      },
+      closePath() {
+        surfaces++;
+      },
+    } as unknown as CanvasRenderingContext2D;
+    createSculpture({ compact })(ctx, 12, 200, 200, 100, 0, 0, 0.06, {
+      yaw: 0.2,
+      pitch: -0.1,
+      rotationTime: 12,
+      wireframe: false,
+      assembly,
+    });
+    expect(points.every(Number.isFinite)).toBe(true);
+    expect(orbits).toBe(2);
+    return surfaces;
+  };
+  const separated = sample(true, 0);
+  const assembled = sample(true, 1);
+  expect(separated).toBeGreaterThan(assembled);
+  expect(separated).toBeGreaterThan(200);
+  expect(separated).toBeLessThan(sample(false, 0) * 0.5);
+  expect(assembled).toBeLessThan(sample(false, 1) * 0.5);
+});
+
 test('sin gestos se arma después de cinco segundos y el ensamblado dura más de un segundo', async ({
   page,
 }) => {
