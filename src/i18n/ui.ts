@@ -26,7 +26,7 @@ export const ui = {
     publicProjects: 'Proyectos públicos',
     ribbonTitle: 'Proyectos en movimiento',
     ribbonHelp:
-      'Arrastrá hacia los lados y soltá para dejarla girar. Con mouse, arriba y abajo inclinan suavemente la cinta. Pulsá entre proyectos para cambiar su aspecto. Tocá un proyecto para explorarlo.',
+      'Arrastrá hacia los lados y soltá para dejarla girar. Arrastrar arriba o abajo inclina suavemente la cinta. Pulsá entre proyectos para cambiar su aspecto. Tocá un proyecto para explorarlo. En celular, desplazá la página desde fuera de la cinta.',
     ribbonKeyboard:
       'Izquierda y derecha giran la cinta. Arriba y abajo la inclinan cuando su superficie tiene foco. Enter abre el proyecto seleccionado. Enter o espacio cambian el aspecto cuando la cinta tiene foco. El movimiento se detiene mientras usás el teclado.',
     ribbonColorChanged: 'Aspecto de la cinta actualizado.',
@@ -165,7 +165,7 @@ export const ui = {
     publicProjects: 'Public projects',
     ribbonTitle: 'Projects in motion',
     ribbonHelp:
-      'Drag sideways and release to keep it moving. With a mouse, drag up or down to gently tilt the ribbon. Click between projects to change its appearance. Tap a project to explore it.',
+      'Drag sideways and release to keep it moving. Drag up or down to gently tilt the ribbon. Click between projects to change its appearance. Tap a project to explore it. On touchscreens, scroll the page outside the ribbon.',
     ribbonKeyboard:
       'Left and right rotate the ribbon. Up and down tilt it when its surface has focus. Enter opens the selected project. Enter or Space changes its appearance when the ribbon has focus. Motion stops while you use the keyboard.',
     ribbonColorChanged: 'Ribbon appearance updated.',

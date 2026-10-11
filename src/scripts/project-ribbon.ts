@@ -21,6 +21,8 @@ export function initializeProjectRibbon() {
   let cycle = 0;
   let radiusX = 0;
   let radiusZ = 0;
+  let inclination = -10;
+  let projected = false;
   let visible = false;
   let windowActive = true;
   let frame = 0;
@@ -63,18 +65,49 @@ export function initializeProjectRibbon() {
     viewport.scrollLeft = 0;
     const phase = cycle ? (physics.position / cycle) * Math.PI * 2 : 0;
     track.style.setProperty('--ring-phase', String(phase));
-    track.style.transform =
-      'translate3d(' +
-      pointer.x * 7 +
-      'px,' +
-      (pointer.y * 3 + tilt * 0.6) +
-      'px,' +
-      -radiusZ +
-      'px) rotateX(' +
-      (-10 + pointer.y * 1.2 + tilt) +
-      'deg) rotateY(' +
-      pointer.x * 0.8 +
-      'deg)';
+    const pitch = ((inclination + pointer.y * 1.2 + tilt) * Math.PI) / 180;
+    const sinPitch = Math.sin(pitch),
+      cosPitch = Math.cos(pitch);
+    const perspective = 1200;
+    // Project the same 3D ring explicitly on small screens. Nested preserve-3d
+    // can be flattened by WebKit; independent affine faces retain its depth.
+    const projectFace = (x: number, z: number, normal: number) => {
+      const y = -z * sinPitch;
+      const scale = perspective / (perspective - z * cosPitch + radiusZ);
+      const slope = (scale * scale) / perspective;
+      const normalSin = Math.sin(normal),
+        normalCos = Math.cos(normal);
+      const depthX = -normalSin * cosPitch;
+      return (
+        'matrix(' +
+        [
+          scale * normalCos + x * slope * depthX,
+          scale * normalSin * sinPitch + y * slope * depthX,
+          x * slope * sinPitch,
+          scale * cosPitch + y * slope * sinPitch,
+          x * scale,
+          y * scale,
+        ].join(',') +
+        ')'
+      );
+    };
+    track.style.transform = projected
+      ? 'translate(' +
+        pointer.x * 7 +
+        'px,' +
+        (pointer.y * 3 + tilt * 0.6) +
+        'px)'
+      : 'translate3d(' +
+        pointer.x * 7 +
+        'px,' +
+        (pointer.y * 3 + tilt * 0.6) +
+        'px,' +
+        -radiusZ +
+        'px) rotateX(' +
+        (inclination + pointer.y * 1.2 + tilt) +
+        'deg) rotateY(' +
+        pointer.x * 0.8 +
+        'deg)';
     slots.forEach((slot, index) => {
       const angle = phase + (index * Math.PI * 2) / slots.length;
       const sine = Math.sin(angle),
@@ -83,16 +116,23 @@ export function initializeProjectRibbon() {
       const normal = Math.atan2(radiusZ * sine, radiusX * cosine);
       // Explicit culling also works on WebKit ports that flatten nested 3D
       // layers. Opacity keeps back cards in the keyboard/accessibility order.
-      slot.dataset.facing = Math.cos(normal) > 0.06 ? 'front' : 'back';
+      const faceNormal = Math.cos(normal);
+      const facing = projected
+        ? faceNormal * cosPitch -
+          (radiusZ * cosine * faceNormal + radiusX * sine * Math.sin(normal)) /
+            (perspective + radiusZ)
+        : faceNormal;
+      slot.dataset.facing = facing > 0.06 ? 'front' : 'back';
       slot.style.zIndex = String(100 + Math.round(cosine * 100));
-      slot.style.transform =
-        'translate3d(' +
-        radiusX * sine +
-        'px,0,' +
-        radiusZ * cosine +
-        'px) rotateY(' +
-        normal +
-        'rad)';
+      slot.style.transform = projected
+        ? projectFace(radiusX * sine, radiusZ * cosine, normal)
+        : 'translate3d(' +
+          radiusX * sine +
+          'px,0,' +
+          radiusZ * cosine +
+          'px) rotateY(' +
+          normal +
+          'rad)';
       cards[index].style.setProperty(
         '--face-light',
         String(0.02 + Math.max(0, Math.cos(normal)) * 0.08),
@@ -113,14 +153,19 @@ export function initializeProjectRibbon() {
       const width =
         2 * Math.sin(halfStep) * Math.hypot(x * cosine, z * sine) + 0.8;
       segment.style.setProperty('--segment-width', width + 'px');
-      segment.style.transform =
-        'translate3d(' +
-        x * sine * Math.cos(halfStep) +
-        'px,0,' +
-        z * cosine * Math.cos(halfStep) +
-        'px) rotateY(' +
-        normal +
-        'rad)';
+      segment.style.transform = projected
+        ? projectFace(
+            x * sine * Math.cos(halfStep),
+            z * cosine * Math.cos(halfStep),
+            normal,
+          )
+        : 'translate3d(' +
+          x * sine * Math.cos(halfStep) +
+          'px,0,' +
+          z * cosine * Math.cos(halfStep) +
+          'px) rotateY(' +
+          normal +
+          'rad)';
     });
   }
   function finish(cancelled = false) {
@@ -192,6 +237,7 @@ export function initializeProjectRibbon() {
         return;
       }
       viewport.removeAttribute('aria-describedby');
+      ribbon.removeAttribute('data-projected');
       track.style.removeProperty('transform');
       slots.forEach((slot) => {
         slot.style.removeProperty('transform');
@@ -238,21 +284,27 @@ export function initializeProjectRibbon() {
     const cardWidth = cards[0].offsetWidth;
     const cardHeight = Math.max(...cards.map((card) => card.offsetHeight));
     const compact = viewport.clientWidth < 660;
+    projected = compact;
+    ribbon.toggleAttribute('data-projected', projected);
+    inclination = compact ? -16 : -10;
     radiusX = Math.max(
-      cardWidth * (compact ? 0.74 : 0.85),
-      (viewport.clientWidth - cardWidth * 0.24) / 2,
+      cardWidth * (compact ? 0.65 : 0.85),
+      (viewport.clientWidth - cardWidth * (compact ? 0.55 : 0.24)) / 2,
     );
     radiusZ = compact
-      ? Math.max(72, Math.min(110, radiusX * 0.42))
+      ? Math.max(56, Math.min(104, radiusX * 0.62))
       : Math.min(210, Math.max(110, radiusX * 0.48));
     cycle = 2 * Math.PI * radiusX;
     physics.position = previous ? (physics.position * cycle) / previous : 0;
-    const rise = radiusZ * Math.sin((10 * Math.PI) / 180);
+    const rise = radiusZ * Math.sin((-inclination * Math.PI) / 180);
     ribbon.style.setProperty('--card-height', cardHeight + 'px');
     ribbon.style.setProperty('--band-height', cardHeight * 0.68 + 'px');
     ribbon.style.setProperty('--ring-radius-x', radiusX + 'px');
     ribbon.style.setProperty('--ring-radius-z', radiusZ + 'px');
-    ribbon.style.setProperty('--ring-height', cardHeight + rise + 10 + 'px');
+    ribbon.style.setProperty(
+      '--ring-height',
+      cardHeight + rise * (compact ? 2 : 1) + (compact ? 28 : 10) + 'px',
+    );
     ribbon.style.setProperty('--ring-lift', rise * 0.8 + 'px');
     ribbon.style.setProperty(
       '--ring-perspective',
@@ -339,20 +391,7 @@ export function initializeProjectRibbon() {
     const dx = event.clientX - drag.startX,
       dy = event.clientY - drag.startY;
     if (!drag.active) {
-      if (
-        event.pointerType !== 'mouse' &&
-        Math.abs(dy) > 8 &&
-        Math.abs(dy) > Math.abs(dx)
-      ) {
-        finish(true);
-        return;
-      }
-      if (
-        (event.pointerType === 'mouse'
-          ? Math.max(Math.abs(dx), Math.abs(dy))
-          : Math.abs(dx)) < 7
-      )
-        return;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 7) return;
       drag.active = true;
       viewport.setPointerCapture(drag.id);
       ribbon.dataset.dragging = 'true';
@@ -371,6 +410,16 @@ export function initializeProjectRibbon() {
     wrap();
     paint();
   });
+  // Single-finger gestures belong to the object from their starting surface.
+  // Keep a native Touch Events fallback for Safari; taps and page pinch remain native.
+  viewport.addEventListener(
+    'touchmove',
+    (event) => {
+      if (drag?.active && event.touches.length === 1 && event.cancelable)
+        event.preventDefault();
+    },
+    { passive: false },
+  );
   // Before the drag threshold there is no pointer capture: release may be outside.
   window.addEventListener('pointerup', (event) => {
     if (event.pointerId === drag?.id) finish();

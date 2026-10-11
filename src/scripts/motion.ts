@@ -139,7 +139,12 @@ export function initializeMotion() {
       const bounds = anchor.getBoundingClientRect();
       scene.x = bounds.left + bounds.width / 2;
       scene.y = bounds.top + bounds.height / 2 + parallax * 0.6;
-      scene.scale = bounds.width * 0.37;
+      // Keep the visible touch object inside its hit area, including when rotated.
+      // Otherwise grabbing its overhanging top/bottom starts a page gesture.
+      scene.scale =
+        !handle?.hidden && !finePointer.matches
+          ? Math.min(bounds.width, bounds.height) * 0.27
+          : bounds.width * 0.37;
       scene.opacity =
         !handle?.hidden && !finePointer.matches
           ? 0.18
@@ -254,11 +259,7 @@ export function initializeMotion() {
     if (!drag.active) {
       const dx = event.clientX - drag.startX;
       const dy = event.clientY - drag.startY;
-      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
-        cancelDrag();
-        return;
-      }
-      if (Math.abs(dx) < 7) return;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 7) return;
       drag.active = true;
       handle.setPointerCapture(event.pointerId);
       handle.dataset.dragging = 'true';
@@ -272,6 +273,14 @@ export function initializeMotion() {
     drag.y = event.clientY;
     drag.time = event.timeStamp;
   });
+  handle?.addEventListener(
+    'touchmove',
+    (event) => {
+      if (drag.active && event.touches.length === 1 && event.cancelable)
+        event.preventDefault();
+    },
+    { passive: false },
+  );
   window.addEventListener('pointerup', (event) => {
     if (drag.pointerId !== event.pointerId) return;
     const moved = drag.distance > 4;

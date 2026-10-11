@@ -251,7 +251,7 @@ const t = getUI(locale);
     height: var(--ring-height);
     padding: 0;
     cursor: grab;
-    touch-action: pan-y pinch-zoom;
+    touch-action: pinch-zoom;
     perspective: var(--ring-perspective);
     perspective-origin: 50% 50%;
     background: radial-gradient(
@@ -297,6 +297,16 @@ const t = getUI(locale);
   .project-ribbon[data-enhanced] .ribbon-group li[data-facing='back'] {
     opacity: 0;
     pointer-events: none;
+  }
+  .project-ribbon[data-projected] .ribbon-viewport {
+    perspective: none;
+  }
+  .project-ribbon[data-projected]
+    :is(.ribbon-track, .ribbon-surface, .ribbon-group) {
+    transform-style: flat;
+  }
+  .project-ribbon[data-projected] .ribbon-group {
+    z-index: 1;
   }
   .project-ribbon[data-enhanced] .ribbon-surface {
     display: block;
@@ -443,11 +453,11 @@ const t = getUI(locale);
   }
   @media (max-width: 700px) {
     .project-ribbon {
-      --card-width: min(260px, calc(100vw - 72px));
+      --card-width: clamp(136px, 38vw, 168px);
     }
     .ribbon-group li {
-      width: min(260px, calc(100vw - 72px));
-      flex-basis: min(260px, calc(100vw - 72px));
+      width: var(--card-width);
+      flex-basis: var(--card-width);
     }
     .project-ribbon:not([data-enhanced]) .ribbon-group {
       grid-template-columns: 1fr;
@@ -457,14 +467,30 @@ const t = getUI(locale);
       height: calc(var(--ring-height) + 24px);
     }
     .project-ribbon[data-enhanced] .ribbon-card {
-      min-height: 180px;
-      padding: 16px 16px 34px;
+      min-height: 148px;
+      padding: 12px 12px 28px;
+      border-radius: 12px;
     }
-    .ribbon-card h3 {
-      font-size: 0.9375rem;
+    .project-ribbon[data-enhanced] .ribbon-card-top {
+      gap: 6px;
+      margin-bottom: 8px;
     }
-    .ribbon-card p {
+    .project-ribbon[data-enhanced] .ribbon-card-top img {
+      width: 58px;
+      height: 41px;
+    }
+    .project-ribbon[data-enhanced] .ribbon-card h3 {
       font-size: 0.75rem;
+      line-height: 1.4;
+      padding-right: 0;
+    }
+    .project-ribbon[data-enhanced] .ribbon-card p {
+      font-size: 0.625rem;
+      line-height: 1.4;
+    }
+    .project-ribbon[data-enhanced] .ribbon-card-arrow {
+      bottom: 10px;
+      right: 12px;
     }
   }
 </style>

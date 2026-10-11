@@ -1596,8 +1596,8 @@ html[data-motion='on'] .ambient-atmosphere[data-active] .ambient-halo {
     display: none;
   }
 }
-/* Touch has its own unobstructed sculpture surface, rather than a hit area
-   over the heading. Vertical gestures continue to scroll the document. */
+/* Touch has its own sculpture surface below the heading. Gestures starting
+   here rotate the object; the rest of the page keeps native scrolling. */
 @media (hover: none) and (max-width: 1099px),
   (pointer: coarse) and (max-width: 1099px) {
   .intro .scene-anchor,
@@ -1617,7 +1617,7 @@ html[data-motion='on'] .ambient-atmosphere[data-active] .ambient-halo {
     display: none;
   }
   .scene-handle {
-    touch-action: pan-y pinch-zoom;
+    touch-action: pinch-zoom;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
   }
@@ -1923,6 +1923,11 @@ html[data-scroll-measuring]
     --depth-z: -60px;
     --depth-pitch: 3deg;
     --depth-yaw: 0deg;
+  }
+  .motion-reveal.site-footer {
+    /* Its entrance must not extend the document's end and then clamp scroll
+       while a touch gesture is releasing on the adjacent ribbon. */
+    --depth-rise: 0px;
   }
   html[data-motion='on'][data-scroll-depth='on']:not(:has(dialog[open]))
     .motion-reveal:not(.is-revealed) {
