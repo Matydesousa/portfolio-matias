@@ -12,18 +12,27 @@ interface Props {
   description?: string;
   tour?: TourStop[];
   locale?: Locale;
+  noindex?: boolean;
 }
 const {
   title = `${profile.name} — Full Stack Developer`,
   tour,
   locale = 'es',
+  noindex = false,
 } = Astro.props;
 const description = Astro.props.description ?? getDescription(locale);
 const t = getUI(locale);
 const home = homePath(locale);
 const alternates = languagePaths(Astro.url.pathname);
-const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : undefined;
-
+const canonical =
+  Astro.site && !noindex ? new URL(Astro.url.pathname, Astro.site) : undefined;
+const socialImage = canonical
+  ? new URL(`/images/social-preview-${locale}.png`, Astro.site)
+  : undefined;
+const socialImageAlt =
+  locale === 'en'
+    ? 'Matías De Sousa — Full Stack Developer. Software and management systems.'
+    : 'Matías De Sousa — Full Stack Developer. Software y sistemas de gestión.';
 ---
 
 <!doctype html>
@@ -64,14 +73,29 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : undefin
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0b1426" />
     <meta name="author" content={profile.name} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
     <meta property="og:type" content="website" />
     <meta property="og:locale" content={locale === 'en' ? 'en_US' : 'es_AR'} />
     <meta property="og:site_name" content={profile.name} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta name="twitter:card" content="summary" />
+    <meta
+      name="twitter:card"
+      content={socialImage ? 'summary_large_image' : 'summary'}
+    />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    {socialImage && (
+      <>
+        <meta property="og:image" content={socialImage} />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={socialImageAlt} />
+        <meta name="twitter:image" content={socialImage} />
+        <meta name="twitter:image:alt" content={socialImageAlt} />
+      </>
+    )}
     {canonical && (
       <>
         <link rel="canonical" href={canonical} />
