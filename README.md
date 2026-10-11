@@ -171,9 +171,9 @@ Las pruebas verifican páginas, imágenes, navegación, enlaces internos, ausenc
 
 La cinta mantiene el giro durante las visitas guiadas, incluso si se pausa el avance del recorrido. Cerrar la guía devuelve el foco al contenido sin detener el giro del contenedor. Abrir el visor de imágenes, pausar los efectos, solicitar movimiento reducido o enfocar una tarjeta con teclado conserva las pausas correspondientes. Soltar el puntero fuera de la cinta antes del umbral de arrastre también libera el agarre.
 
-## Dominio, SEO y despliegue futuro
+## Dominio, SEO y despliegue
 
-El código fuente está disponible en GitHub. **El sitio web todavía no está desplegado en internet ni tiene un dominio conectado.** Tiene títulos y descripciones por página, metadatos Open Graph/X y favicon. Las vistas previas `public/images/social-preview-es.png` y `social-preview-en.png` son imágenes de 1200 × 630 con tipografía, azul marino y geometría acordes al sitio. Su diseño se conserva en `scripts/render-social-preview.mjs`; para regenerarlas, ejecutar `node scripts/render-social-preview.mjs` con Chromium instalado para Playwright o con `PLAYWRIGHT_BROWSER_PATH` definido como en las pruebas.
+El sitio está publicado en **[portfolio-matias.matydesousa.workers.dev](https://portfolio-matias.matydesousa.workers.dev/)** mediante Cloudflare Workers con archivos estáticos. El código fuente está disponible en GitHub; todavía no hay un dominio propio conectado. Tiene títulos y descripciones por página, metadatos Open Graph/X y favicon. Las vistas previas `public/images/social-preview-es.png` y `social-preview-en.png` son imágenes de 1200 × 630 con tipografía, azul marino y geometría acordes al sitio. Su diseño se conserva en `scripts/render-social-preview.mjs`; para regenerarlas, ejecutar `node scripts/render-social-preview.mjs` con Chromium instalado para Playwright o con `PLAYWRIGHT_BROWSER_PATH` definido como en las pruebas.
 
 Al elegir el hosting, definir `PUBLIC_SITE_URL` con su URL HTTPS real, incluso si todavía es la dirección inicial del proveedor. Se puede configurar en el hosting o copiar `.env.example` a `.env`; también se leen las variantes `.env.production` y `.env.development`. La variable del entorno tiene prioridad. Debe ser una URL raíz sin credenciales, subcarpetas, parámetros ni fragmentos; una configuración inválida detiene la compilación con un mensaje explicativo. No se publica un dominio inventado.
 
@@ -181,7 +181,38 @@ Con esa URL configurada, la compilación habilita canonical, `og:url`, `og:image
 
 Antes de compartir la publicación: abrir rutas de proyectos directamente y recargarlas, comprobar que una ruta inexistente devuelve HTTP 404 con la página de error, probar HTTPS, correo, idiomas, recorridos y galerías en un teléfono real. La respuesta HTTP de error depende del hosting; conservar `404.html` y evitar una regla que transforme todas las rutas desconocidas en una portada con HTTP 200. No se requiere una redirección de SPA.
 
-El resultado puede alojarse como sitio estático en GitHub Pages, Netlify, Vercel o Cloudflare Pages. Comando de construcción: `npm ci && npm run build`; carpeta de salida: `dist`. No hace falta un adaptador de servidor para este sitio. Antes de elegir proveedor, verificar sus condiciones vigentes; no se contrató ningún servicio.
+La publicación actual sirve exclusivamente archivos estáticos, sin adaptador de servidor ni servicios de pago contratados para este despliegue. Carpeta de salida: `dist`. El resultado también puede alojarse en otros proveedores compatibles; GitHub Pages bajo una subcarpeta necesita las adaptaciones de rutas indicadas más abajo.
+
+### Cloudflare Workers con archivos estáticos
+
+`wrangler.jsonc` prepara la publicación de `dist` en el Worker `portfolio-matias`. No utiliza código de servidor ni bindings de base de datos. La configuración conserva las rutas de Astro, sirve la página de error con HTTP 404 y desactiva las URLs de vista previa de versiones. `.wrangler/` permanece fuera de Git.
+
+La herramienta de despliegue se ejecuta con una versión fijada, sin añadir dependencias de producción. Iniciar sesión en Cloudflare desde el navegador:
+
+```powershell
+npm.cmd exec --yes --package=wrangler@4.149.0 -- wrangler login --scopes account:read user:read workers_scripts:write
+```
+
+En una nueva copia local, crear `.env.production` con esta dirección real (el archivo permanece fuera de Git):
+
+```dotenv
+PUBLIC_SITE_URL=https://portfolio-matias.matydesousa.workers.dev/
+```
+
+Actualizar ese valor al conectar un dominio propio. Para comprobar la configuración sin subir archivos:
+
+```powershell
+npm.cmd run check
+npm.cmd exec --yes --package=wrangler@4.149.0 -- wrangler deploy --dry-run --autoconfig=false
+```
+
+Para publicar:
+
+```powershell
+npm.cmd exec --yes --package=wrangler@4.149.0 -- wrangler deploy --autoconfig=false
+```
+
+Wrangler vuelve a ejecutar `npm run build` antes de desplegar, por lo que la configuración de URL debe estar disponible también en ese proceso. Tras publicar, verificar la dirección real, el sitemap, robots, las rutas ES/EN, los recursos y HTTP 404. La publicación por CLI no conecta automáticamente el repositorio a Workers Builds: un push a GitHub todavía requiere ejecutar el despliegue para actualizar la web. Al conectar Workers Builds, configurar también `PUBLIC_SITE_URL` en sus variables de compilación.
 
 Para un dominio propio: agregar el dominio en el proveedor elegido, aplicar los registros DNS indicados por ese proveedor y comprobar HTTPS y redirección a una única versión del dominio. Si se usa GitHub Pages bajo una subcarpeta, configurar `base` en Astro y adaptar los enlaces/rutas de recursos; la versión actual está preparada para la raíz de un dominio.
 
