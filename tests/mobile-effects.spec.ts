@@ -26,6 +26,23 @@ test('cinta móvil: caras legibles, giro tras tocar, colores y navegación en to
     await page.clock.runFor(700);
     await expect(ribbon).toHaveAttribute('data-running', 'true');
     const viewport = ribbon.locator('.ribbon-viewport');
+    if (page.viewportSize()!.width <= 700) {
+      const size = await ribbon.evaluate((el) => ({
+        card: el.querySelector<HTMLElement>('.ribbon-card')!.offsetWidth,
+        surface: el.querySelector<HTMLElement>('.ribbon-viewport')!.clientWidth,
+      }));
+      expect(size.card).toBeLessThanOrEqual(size.surface * 0.5);
+      await expect(ribbon).toHaveAttribute('data-projected');
+      const curve = await ribbon
+        .locator('.ribbon-segment')
+        .evaluateAll((nodes) => {
+          const heights = nodes.map(
+            (el) => new DOMMatrix(getComputedStyle(el).transform).m42,
+          );
+          return Math.max(...heights) - Math.min(...heights);
+        });
+      expect(curve).toBeGreaterThan(20);
+    }
     const tapSurface = async () => {
       const box = (await viewport.boundingBox())!;
       await page.touchscreen.tap(
@@ -54,9 +71,17 @@ test('cinta móvil: caras legibles, giro tras tocar, colores y navegación en to
             facing: (el as HTMLElement).dataset.facing,
             opacity: getComputedStyle(el).opacity,
             hit: getComputedStyle(el).pointerEvents,
+            area: (() => {
+              const matrix = new DOMMatrix(getComputedStyle(el).transform);
+              return matrix.a * matrix.d - matrix.b * matrix.c;
+            })(),
           })),
         );
       expect(faces.some((face) => face.facing === 'front')).toBe(true);
+      if (page.viewportSize()!.width <= 700) {
+        for (const face of faces.filter((face) => face.facing === 'front'))
+          expect(face.area).toBeGreaterThan(0);
+      }
       for (const face of faces.filter((face) => face.facing === 'back')) {
         expect(face.opacity).toBe('0');
         expect(face.hit).toBe('none');
@@ -103,10 +128,15 @@ test('figura táctil: espacio propio, ensamblado, cambio de aspecto y pausa', as
   const canvas = page.locator('.ambient-canvas');
   await handle.scrollIntoViewIfNeeded();
   await page.clock.runFor(150);
-  const waiting = (await canvas.getAttribute('data-assembly')) === 'waiting';
+  const initialAssembly = await canvas.getAttribute('data-assembly');
+  const waiting = initialAssembly === 'waiting';
   await handle.tap();
   await page.clock.runFor(2200);
-  await expect(canvas).toHaveAttribute('data-assembly', 'complete');
+  // A sculpture initially below a short landscape viewport starts assembled;
+  // only a visible initial sculpture has the waiting/assembly lifecycle.
+  if (initialAssembly !== null)
+    await expect(canvas).toHaveAttribute('data-assembly', 'complete');
+  else await expect(canvas).not.toHaveAttribute('data-assembly', 'running');
   await expect(handle).toHaveAttribute(
     'aria-pressed',
     waiting ? 'false' : 'true',
@@ -209,7 +239,7 @@ test('recorridos con efectos: tarjeta contenida, avance, cierre y cinta activa',
   }
 });
 
-test('gestos reales: inercia de figura y cinta, scroll vertical y pellizco de galería', async ({
+test('gestos reales: agarre sin scroll, inercia, scroll exterior y pellizco de galería', async ({
   page,
   context,
   browserName,
@@ -262,7 +292,12 @@ test('gestos reales: inercia de figura y cinta, scroll vertical y pellizco de ga
   };
   const handle = page.locator('.scene-handle');
   const h = (await handle.boundingBox())!;
-  await swipe(h.x + 40, h.y + h.height / 2, 110, 10, 1);
+  const figureScroll = await page.evaluate(() => scrollY);
+  await swipe(h.x + 40, h.y + h.height / 2, 110, 60, 1);
+  expect(await page.evaluate(() => scrollY)).toBeCloseTo(figureScroll, 0);
+  await swipe(h.x + 70, h.y + 35, 3, 85, 6);
+  expect(await page.evaluate(() => scrollY)).toBeCloseTo(figureScroll, 0);
+  await swipe(h.x + 40, h.y + h.height / 2, 110, 20, 7);
   const yaw = () =>
     page.evaluate(() =>
       (window as unknown as { sceneSamples: number[] }).sceneSamples.at(-1)!,
@@ -285,12 +320,16 @@ test('gestos reales: inercia de figura y cinta, scroll vertical y pellizco de ga
       .locator('.ribbon-track')
       .evaluate((el) => el.style.getPropertyValue('--ring-phase'));
   const before = await phase();
-  await swipe(v.x + v.width / 2, v.y + 10, -100, 6, 2);
+  const ribbonScroll = await page.evaluate(() => scrollY);
+  await swipe(v.x + v.width / 2, v.y + 10, -100, 65, 2);
+  expect(await page.evaluate(() => scrollY)).toBeCloseTo(ribbonScroll, 0);
   expect(await phase()).not.toBe(before);
   await expect(page).toHaveURL(/\/$/);
   await expect(ribbon).toHaveAttribute('data-running', 'true');
   const scroll = await page.evaluate(() => scrollY);
   await swipe(v.x + v.width / 2, v.y + 10, 2, 110, 3);
+  expect(await page.evaluate(() => scrollY)).toBeCloseTo(scroll, 0);
+  await swipe(8, v.y + 10, 2, 110, 8);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(scroll);
   await page.goto('/proyectos/oax-demo/');
   await page.locator('[data-image-open]').tap();

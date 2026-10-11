@@ -621,7 +621,7 @@ test('sin JavaScript: listado plano sin desbordamiento y enlaces nativos', async
   await context.close();
 });
 
-test('gestos reales en móvil: arrastre horizontal y desplazamiento vertical conservado', async ({
+test('gestos reales en móvil: arrastre sin scroll y desplazamiento fuera de la cinta', async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -668,6 +668,19 @@ test('gestos reales en móvil: arrastre horizontal y desplazamiento vertical con
   await touch.send('Input.dispatchTouchEvent', {
     type: 'touchMove',
     touchPoints: [{ x, y: y + 100, id: 2 }],
+  });
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  expect(await page.evaluate(() => scrollY)).toBeCloseTo(scroll, 0);
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: 8, y, id: 3 }],
+  });
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: 8, y: y + 100, id: 3 }],
   });
   await touch.send('Input.dispatchTouchEvent', {
     type: 'touchEnd',
