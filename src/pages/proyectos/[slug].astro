@@ -1,5 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import ProjectPage from '../../components/ProjectPage.astro';
 import { projects } from '../../data/projects';
 import type { Project } from '../../data/projects';
 export function getStaticPaths() {
@@ -12,82 +12,6 @@ interface Props {
   project: Project;
 }
 const { project } = Astro.props;
-const index = projects.findIndex((item) => item.slug === project.slug);
-const next = projects[(index + 1) % projects.length];
-const image =
-  project.slug === 'notas-pendientes'
-    ? '/images/notas-pendientes.png'
-    : project.image;
-const imageAlt =
-  project.slug === 'notas-pendientes'
-    ? 'Captura real de Notas y pendientes ejecutado localmente, con tareas de demostración.'
-    : project.imageAlt;
 ---
 
-<Layout
-  title={`${project.title} — Matías De Sousa`}
-  description={project.summary}
->
-  <main id="contenido" class="case-main container">
-    <a class="back-link" href="/#proyectos">
-      Volver a proyectos
-    </a>
-    <header class="case-header">
-      <p class="eyebrow">
-        {project.number} / {project.category}
-      </p>
-      <h1>
-        {project.title}
-        <span class="accent">.</span>
-      </h1>
-      <p class="case-summary">{project.summary}</p>
-      <ul class="tags" aria-label="Tecnologías del proyecto">
-        {project.stack.map((tag) => (
-          <li>{tag}</li>
-        ))}
-      </ul>
-      <a
-        class="button button-accent"
-        href={project.repository}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Ver repositorio en GitHub
-        <span class="sr-only"> (abre en otra pestaña)</span>
-      </a>
-    </header>
-    {image && (
-      <figure class="project-figure case-image">
-        <img src={image} alt={imageAlt} width="1440" height="960" />
-        <figcaption>
-          {project.caption ??
-            'Captura de ejecución local · datos preparados para la demostración'}
-        </figcaption>
-      </figure>
-    )}
-    <section class="case-body" aria-labelledby="problem-title">
-      <h2 id="problem-title">El problema</h2>
-      <p>{project.problem}</p>
-    </section>
-    <section class="case-body" aria-labelledby="contribution-title">
-      <h2 id="contribution-title">Mi participación</h2>
-      <p>{project.contribution}</p>
-    </section>
-    <section class="case-body" aria-labelledby="decisions-title">
-      <h2 id="decisions-title">Decisiones técnicas</h2>
-      <ol class="decision-list">
-        {project.decisions.map((decision) => (
-          <li>{decision}</li>
-        ))}
-      </ol>
-    </section>
-    <section class="case-body" aria-labelledby="scope-title">
-      <h2 id="scope-title">Alcance</h2>
-      <p>{project.scope}</p>
-    </section>
-    <nav class="case-next" aria-label="Más proyectos">
-      <a href="/#proyectos">Todos los proyectos</a>
-      <a href={`/proyectos/${next.slug}/`}>Siguiente: {next.title}</a>
-    </nav>
-  </main>
-</Layout>
+<ProjectPage project={project} />

@@ -1,0 +1,303 @@
+---
+import type { ProjectImage } from '../data/projects';
+import { getUI, type Locale } from '../i18n/ui';
+interface Props {
+  src: string;
+  alt: string;
+  title: string;
+  caption: string;
+  gallery?: ProjectImage[];
+  width?: number;
+  height?: number;
+  locale?: Locale;
+}
+const {
+  src,
+  alt,
+  title,
+  caption,
+  gallery = [],
+  width = 1440,
+  height = 960,
+  locale = 'es',
+} = Astro.props;
+const t = getUI(locale);
+const images: ProjectImage[] = [
+  { src, alt, title, caption, width, height },
+  ...gallery.map((item) => ({
+    ...item,
+    title: `${title} · ${item.title}`,
+    caption: item.description
+      ? `${item.caption}. ${item.description}`
+      : item.caption,
+  })),
+];
+---
+
+<dialog
+  class="image-viewer"
+  aria-labelledby="image-viewer-title"
+  aria-describedby="image-viewer-caption"
+  data-images={JSON.stringify(images)}
+>
+  <div class="image-viewer-top">
+    <h2 id="image-viewer-title">{title}</h2>
+    <button
+      class="image-viewer-close"
+      type="button"
+      aria-label={t.closeImage}
+      title={t.closeImage}
+    >
+      <span aria-hidden="true">×</span>
+    </button>
+    <div class="image-zoom-toolbar" role="group" aria-label={t.imageZoom}>
+      <button
+        type="button"
+        data-zoom-out
+        aria-label={t.zoomOut}
+        title={t.zoomOut}
+        disabled
+      >
+        −
+      </button>
+      <output class="image-zoom-level" aria-label={t.zoomLevel} aria-live="off">
+        100%
+      </output>
+      <button type="button" data-zoom-in aria-label={t.zoomIn} title={t.zoomIn}>
+        +
+      </button>
+      <button
+        type="button"
+        data-zoom-fit
+        aria-label={t.fitImage}
+        title={t.fitImage}
+        disabled
+      >
+        <span aria-hidden="true">⤢</span>
+      </button>
+    </div>
+  </div>
+  <div
+    class="image-viewport"
+    tabindex="0"
+    role="group"
+    aria-label={t.imageZoom}
+    aria-describedby="image-zoom-help"
+  >
+    <img
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      loading="lazy"
+      draggable="false"
+    />
+  </div>
+  <div class="image-viewer-bottom">
+    <div class="image-viewer-actions">
+      <button
+        class="image-info-toggle"
+        type="button"
+        aria-label={t.imageDetails}
+        title={t.imageDetails}
+        aria-expanded="false"
+        aria-controls="image-viewer-details"
+      >
+        <span aria-hidden="true">ⓘ</span>
+      </button>
+      <a
+        class="image-original"
+        href={src}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${t.originalImage}${t.newTab}`}
+        title={t.originalImage}
+      >
+        <span aria-hidden="true">↗</span>
+      </a>
+      {images.length > 1 && (
+        <nav class="image-viewer-navigation" aria-label={t.galleryNavigation}>
+          <button
+            class="image-previous"
+            type="button"
+            aria-label={t.previousImage}
+            title={t.previousImage}
+          >
+            <span aria-hidden="true">←</span>
+          </button>
+          <span class="image-counter" aria-live="polite" aria-atomic="true">
+            1 {t.of} {images.length}
+          </span>
+          <button
+            class="image-next"
+            type="button"
+            aria-label={t.nextImage}
+            title={t.nextImage}
+          >
+            <span aria-hidden="true">→</span>
+          </button>
+        </nav>
+      )}
+    </div>
+    <div
+      id="image-viewer-details"
+      class="image-viewer-details"
+      tabindex="0"
+      role="region"
+      aria-label={t.imageDetails}
+      hidden
+    >
+      <p id="image-viewer-caption">{caption}</p>
+      <p id="image-zoom-help" class="image-zoom-help">
+        {t.zoomHelp}
+      </p>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import type { ProjectImage } from '../data/projects';
+  import { getUI, documentLocale } from '../i18n/ui';
+  import { createImageZoom } from '../scripts/image-zoom';
+  const t = getUI(documentLocale());
+  const viewer = document.querySelector<HTMLDialogElement>('.image-viewer');
+  const triggers = document.querySelectorAll<HTMLElement>(
+    '[data-image-open], [data-gallery-index]',
+  );
+  if (viewer && triggers.length) {
+    const images: ProjectImage[] = JSON.parse(viewer.dataset.images!);
+    const image = viewer.querySelector<HTMLImageElement>('img')!;
+    const zoom = createImageZoom(viewer, image);
+    const title = viewer.querySelector<HTMLElement>('#image-viewer-title')!;
+    const caption = viewer.querySelector<HTMLElement>('#image-viewer-caption')!;
+    const original =
+      viewer.querySelector<HTMLAnchorElement>('.image-original')!;
+    const counter = viewer.querySelector<HTMLElement>('.image-counter');
+    const info = viewer.querySelector<HTMLButtonElement>('.image-info-toggle')!;
+    const details = viewer.querySelector<HTMLElement>('.image-viewer-details')!;
+    info.addEventListener('click', () => {
+      details.hidden = !details.hidden;
+      info.setAttribute('aria-expanded', String(!details.hidden));
+    });
+    let index = 0;
+    let opener: HTMLElement;
+    const motionAllowed = () =>
+      !matchMedia('(prefers-reduced-motion: reduce)').matches &&
+      document.documentElement.dataset.motion !== 'off';
+    function selectImage(destination: number, animate = false) {
+      index = (destination + images.length) % images.length;
+      const item = images[index];
+      image.getAnimations().forEach((animation) => animation.cancel());
+      image.src = item.src;
+      image.alt = item.alt;
+      image.width = item.width ?? 1440;
+      image.height = item.height ?? 960;
+      zoom.fit();
+      title.textContent = item.title;
+      caption.textContent = item.caption;
+      original.href = item.src;
+      if (counter)
+        counter.textContent = `${index + 1} ${t.of} ${images.length}`;
+      if (animate && motionAllowed())
+        image.animate(
+          [
+            { opacity: 0.5, translate: '0 3px' },
+            { opacity: 1, translate: '0 0' },
+          ],
+          { duration: 180, easing: 'ease-out' },
+        );
+    }
+    triggers.forEach((trigger) => {
+      trigger.hidden = false;
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      trigger.addEventListener('click', (event) => {
+        if (
+          event instanceof MouseEvent &&
+          (event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            event.shiftKey ||
+            event.button !== 0)
+        )
+          return;
+        event.preventDefault();
+        opener = trigger;
+        details.hidden = true;
+        info.setAttribute('aria-expanded', 'false');
+        selectImage(Number(trigger.dataset.galleryIndex ?? 0));
+        viewer.showModal();
+        zoom.fit();
+        viewer.querySelector<HTMLButtonElement>('.image-viewer-close')!.focus();
+        if (motionAllowed())
+          viewer.animate(
+            [
+              { opacity: 0, transform: 'translateY(8px) scale(0.99)' },
+              { opacity: 1, transform: 'none' },
+            ],
+            { duration: 240, easing: 'cubic-bezier(0.16,1,0.3,1)' },
+          );
+      });
+    });
+    viewer
+      .querySelector('.image-previous')
+      ?.addEventListener('click', () => selectImage(index - 1, true));
+    viewer
+      .querySelector('.image-next')
+      ?.addEventListener('click', () => selectImage(index + 1, true));
+    viewer.addEventListener('keydown', (event) => {
+      if (event.defaultPrevented) return;
+      if (
+        images.length <= 1 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        selectImage(index + (event.key === 'ArrowLeft' ? -1 : 1), true);
+      }
+    });
+    viewer
+      .querySelector('.image-viewer-close')!
+      .addEventListener('click', () => viewer.close());
+    viewer.addEventListener('click', (event) => {
+      if (event.target !== viewer) return;
+      const bounds = viewer.getBoundingClientRect();
+      if (
+        event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom
+      )
+        viewer.close();
+    });
+    viewer.addEventListener('close', () => {
+      details.hidden = true;
+      info.setAttribute('aria-expanded', 'false');
+      zoom.fit();
+      viewer
+        .getAnimations({ subtree: true })
+        .forEach((animation) => animation.cancel());
+      opener?.focus({ preventScroll: true });
+    });
+    const stopMotion = () => {
+      if (
+        document.documentElement.dataset.motion === 'off' ||
+        matchMedia('(prefers-reduced-motion: reduce)').matches
+      )
+        viewer
+          .getAnimations({ subtree: true })
+          .forEach((animation) => animation.cancel());
+    };
+    new MutationObserver(stopMotion).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-motion'],
+    });
+    matchMedia('(prefers-reduced-motion: reduce)').addEventListener(
+      'change',
+      stopMotion,
+    );
+  }
+</script>

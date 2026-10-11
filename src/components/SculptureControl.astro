@@ -1,0 +1,21 @@
+---
+import { getUI, type Locale } from '../i18n/ui';
+interface Props {
+  locale?: Locale;
+}
+const t = getUI(Astro.props.locale);
+---
+
+<div class="scene-anchor">
+  <button
+    class="scene-handle"
+    type="button"
+    aria-label={t.sculptureLabel}
+    aria-describedby="scene-help"
+    aria-pressed="false"
+    hidden
+  ></button>
+  <span id="scene-help" hidden>
+    {t.sculptureHelp}
+  </span>
+</div>

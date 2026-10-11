@@ -2,30 +2,70 @@
 import '@fontsource-variable/manrope';
 import '../styles/global.css';
 import { profile } from '../data/profile';
+import Walkthrough from '../components/Walkthrough.astro';
+import type { TourStop } from '../data/walkthroughs';
+import { getUI, homePath, languagePaths, type Locale } from '../i18n/ui';
+import { getDescription, getProjects } from '../i18n/content';
+import ProjectRibbon from '../components/ProjectRibbon.astro';
 interface Props {
   title?: string;
   description?: string;
+  tour?: TourStop[];
+  locale?: Locale;
 }
 const {
-  title = `${profile.name} — Software y sistemas de gestión`,
-  description = profile.description,
+  title = `${profile.name} — Full Stack Developer`,
+  tour,
+  locale = 'es',
 } = Astro.props;
-const canonical = Astro.site
-  ? new URL(Astro.url.pathname, Astro.site)
-  : undefined;
+const description = Astro.props.description ?? getDescription(locale);
+const t = getUI(locale);
+const home = homePath(locale);
+const alternates = languagePaths(Astro.url.pathname);
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : undefined;
+
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang={locale}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      (() => {
+        let paused = false;
+        try {
+          paused = localStorage.getItem('portfolio-motion') === 'off';
+        } catch {
+          /* Storage is optional. */
+        }
+        const root = document.documentElement;
+        root.dataset.motion =
+          paused || matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'off'
+            : 'on';
+        // Register before the first render, including restores from browser history.
+        const respectMotion = (event) => {
+          let shouldSkip =
+            root.dataset.motion === 'off' ||
+            matchMedia('(prefers-reduced-motion: reduce)').matches;
+          try {
+            shouldSkip ||= localStorage.getItem('portfolio-motion') === 'off';
+          } catch {
+            /* The current document preference still applies. */
+          }
+          if (shouldSkip) event.viewTransition?.skipTransition();
+        };
+        window.addEventListener('pageswap', respectMotion);
+        window.addEventListener('pagereveal', respectMotion);
+      })();
+    </script>
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0b1426" />
     <meta name="author" content={profile.name} />
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content="es_AR" />
+    <meta property="og:locale" content={locale === 'en' ? 'en_US' : 'es_AR'} />
     <meta property="og:site_name" content={profile.name} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -36,44 +76,90 @@ const canonical = Astro.site
       <>
         <link rel="canonical" href={canonical} />
         <meta property="og:url" content={canonical} />
+        <link
+          rel="alternate"
+          hreflang="es"
+          href={new URL(alternates.es, Astro.site)}
+        />
+        <link
+          rel="alternate"
+          hreflang="en"
+          href={new URL(alternates.en, Astro.site)}
+        />
+        <link
+          rel="alternate"
+          hreflang="x-default"
+          href={new URL(alternates.es, Astro.site)}
+        />
       </>
     )}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
+    <div class="ambient-atmosphere" aria-hidden="true" hidden>
+      <div class="ambient-grid"></div>
+      <div class="ambient-halo"></div>
+      <div class="ambient-pulse"></div>
+    </div>
     <canvas class="ambient-canvas" aria-hidden="true"></canvas>
     <div class="reading-progress" aria-hidden="true"></div>
     <a class="skip-link" href="#contenido">
-      Saltar al contenido
+      {t.skip}
     </a>
     <header class="site-header container">
-      <a class="brand" href="/" aria-label="Matías De Sousa, inicio">
+      <a class="brand" href={home} aria-label={`Matías De Sousa, ${t.home}`}>
         mds<span>.</span>
       </a>
-      <nav aria-label="Navegación principal">
-        <a href="/#proyectos">Proyectos</a>
-        <a href="/#sobre-mi">Sobre mí</a>
-        <a class="nav-contact" href="/#contacto">
-          Hablemos
+      <nav aria-label={t.navigation}>
+        <a href={`${home}#proyectos`}>{t.projects}</a>
+        <a href={`${home}#sobre-mi`}>{t.about}</a>
+        <a class="nav-contact" href={`${home}#contacto`}>
+          {t.contact}
         </a>
       </nav>
-      <button class="motion-toggle" type="button" hidden aria-pressed="false">
-        Pausar efectos
-      </button>
+      <div class="header-tools">
+        <button class="motion-toggle" type="button" hidden aria-pressed="false">
+          {t.motionPause}
+        </button>
+        <div class="language-switch" role="group" aria-label={t.languages}>
+          <a
+            href={alternates.es}
+            lang="es"
+            hreflang="es"
+            aria-label="Español"
+            aria-current={locale === 'es' ? 'page' : undefined}
+          >
+            ES
+          </a>
+          <a
+            href={alternates.en}
+            lang="en"
+            hreflang="en"
+            aria-label="English"
+            aria-current={locale === 'en' ? 'page' : undefined}
+          >
+            EN
+          </a>
+        </div>
+      </div>
     </header>
     <slot />
+    <ProjectRibbon projects={getProjects(locale)} locale={locale} />
     <footer class="site-footer container">
-      <a class="brand" href="/" aria-label="Volver al inicio">
+      <a class="brand" href={home} aria-label={t.backHome}>
         mds<span>.</span>
       </a>
-      <p>Matías De Sousa · Desarrollo de software</p>
+      <p>Matías De Sousa · {t.footer}</p>
       <a href={profile.github} target="_blank" rel="noopener noreferrer">
-        GitHub <span class="sr-only">(abre en otra pestaña)</span>
+        GitHub <span class="sr-only">{t.newTab}</span>
       </a>
     </footer>
+    {tour && <Walkthrough stops={tour} locale={locale} />}
     <script>
       import { initializeMotion } from '../scripts/motion';
+      import { initializeDiscoveries } from '../scripts/discoveries';
       initializeMotion();
+      initializeDiscoveries();
     </script>
   </body>
 </html>

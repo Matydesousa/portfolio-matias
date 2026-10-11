@@ -1,0 +1,146 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { profile } from '../data/profile';
+import { getProjects, getExperience } from '../i18n/content';
+import { getUI, projectPath, type Locale } from '../i18n/ui';
+import { getPortfolioTour } from '../data/walkthroughs';
+import SculptureControl from './SculptureControl.astro';
+import EmailCopy from './EmailCopy.astro';
+interface Props {
+  locale?: Locale;
+}
+const { locale = 'es' } = Astro.props;
+const t = getUI(locale);
+const projects = getProjects(locale);
+const experience = getExperience(locale);
+---
+
+<Layout locale={locale} tour={getPortfolioTour(locale)}>
+  <main id="contenido" class="container">
+    <section class="intro" aria-labelledby="intro-title">
+      <SculptureControl locale={locale} />
+      <p class="eyebrow">Full Stack Developer</p>
+      <h1 id="intro-title" aria-label="Matías De Sousa">
+        {['Matías', 'De', 'Sousa'].map((word, wordIndex) => (
+          <>
+            <span class="title-word" aria-hidden="true">
+              {Array.from(word).map((letter, index) => (
+                <span
+                  class="intro-letter"
+                  style={`--letter:${wordIndex * 7 + index}`}
+                >
+                  {letter}
+                </span>
+              ))}
+            </span>
+            {wordIndex < 2 ? (
+              ' '
+            ) : (
+              <span class="title-point">
+                <span class="accent" data-name-dot aria-hidden="true">
+                  .
+                </span>
+                <button
+                  class="name-spark"
+                  type="button"
+                  aria-label={t.animateName}
+                  hidden
+                >
+                  .
+                </button>
+              </span>
+            )}
+          </>
+        ))}
+      </h1>
+      <p class="intro-description">{t.intro}</p>
+      <p class="availability">{t.availability}</p>
+      <button
+        class="tour-trigger"
+        data-tour-start
+        type="button"
+        aria-haspopup="dialog"
+        aria-controls="page-tour"
+        hidden
+      >
+        {t.tourPortfolio} <span aria-hidden="true">↗</span>
+      </button>
+    </section>
+    <section id="proyectos" class="projects" aria-labelledby="projects-title">
+      <div class="list-heading">
+        <h2 id="projects-title">{t.publicProjects}</h2>
+        <span>
+          {projects.length} {t.projectCount}
+        </span>
+      </div>
+      <ul class="repository-list">
+        {projects.map((project) => (
+          <li>
+            <a
+              class="repository-link"
+              href={projectPath(project.slug, locale)}
+              aria-labelledby={`title-${project.slug}`}
+            >
+              <span class="thumbnail-frame">
+                <img
+                  class="repository-thumbnail"
+                  src={project.thumbnail}
+                  alt={project.thumbnailAlt}
+                  width="160"
+                  height="112"
+                  loading="lazy"
+                />
+              </span>
+              <div class="repository-info">
+                <p class="repository-category">{project.category}</p>
+                <h3 id={`title-${project.slug}`}>{project.title}</h3>
+                <p class="repository-summary">{project.summary}</p>
+                <p class="repository-stack">
+                  {project.stack.slice(0, 3).join(' · ')}
+                </p>
+              </div>
+              <span class="repository-action" aria-hidden="true">
+                {t.detail}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+    <section class="about" id="sobre-mi" aria-labelledby="about-title">
+      <h2 id="about-title">{t.about}</h2>
+      <p>{t.aboutText}</p>
+      <details>
+        <summary>{t.experience}</summary>
+        <div class="experience-list">
+          {experience.map((item) => (
+            <div>
+              <h3>{item.organization}</h3>
+              <p>
+                {item.role}. {item.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </details>
+      <p class="development">
+        <strong>{t.development}</strong> {t.developmentText}
+      </p>
+    </section>
+    <section class="contact" id="contacto" aria-labelledby="contact-title">
+      <div>
+        <h2 id="contact-title">{t.contact}</h2>
+        <p>{t.contactText}</p>
+      </div>
+      <div class="contact-links">
+        <EmailCopy email={profile.email} locale={locale} />
+        <a href={profile.linkedin} target="_blank" rel="noopener noreferrer">
+          LinkedIn<span class="sr-only">{t.newTab}</span>
+        </a>
+        <a href={profile.github} target="_blank" rel="noopener noreferrer">
+          GitHub<span class="sr-only">{t.newTab}</span>
+        </a>
+      </div>
+    </section>
+  </main>
+</Layout>

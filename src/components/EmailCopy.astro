@@ -1,0 +1,76 @@
+---
+import { getUI, type Locale } from '../i18n/ui';
+interface Props {
+  email: string;
+  locale?: Locale;
+}
+const { email, locale = 'es' } = Astro.props;
+const t = getUI(locale);
+---
+
+<div class="contact-email">
+  <a
+    id="contact-email-link"
+    class="contact-email-action"
+    href={`mailto:${email}`}
+    data-copy-email={email}
+    data-label={`${t.copyEmail}: ${email}`}
+    data-hint={t.copyEmail}
+    data-success={t.copied}
+    data-failure={t.copyFailed}
+  >
+    {email}
+  </a>
+  <span
+    class="email-copy-status"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+  ></span>
+</div>
+<script>
+  document
+    .querySelectorAll<HTMLAnchorElement>('[data-copy-email]')
+    .forEach((email) => {
+      const status =
+        email.parentElement!.querySelector<HTMLElement>('.email-copy-status')!;
+      let reset: ReturnType<typeof setTimeout>;
+      let busy = false;
+      email.setAttribute('role', 'button');
+      email.setAttribute('aria-label', email.dataset.label!);
+      email.title = email.dataset.hint!;
+      email.addEventListener('keydown', (event) => {
+        if (event.key !== ' ') return;
+        event.preventDefault();
+        if (!event.repeat) email.click();
+      });
+      email.addEventListener('click', async (event) => {
+        if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey)
+          return;
+        event.preventDefault();
+        if (busy) return;
+        busy = true;
+        clearTimeout(reset);
+        delete email.dataset.copied;
+        status.textContent = '';
+        try {
+          await navigator.clipboard.writeText(email.dataset.copyEmail!);
+          email.dataset.copied = 'true';
+          status.textContent = email.dataset.success!;
+        } catch {
+          const range = document.createRange();
+          range.selectNodeContents(email);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          status.textContent = email.dataset.failure!;
+        } finally {
+          busy = false;
+        }
+        reset = setTimeout(() => {
+          delete email.dataset.copied;
+          status.textContent = '';
+        }, 4000);
+      });
+    });
+</script>

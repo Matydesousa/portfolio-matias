@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getUI, homePath, type Locale } from '../i18n/ui';
+interface Props {
+  locale?: Locale;
+}
+const { locale = 'es' } = Astro.props;
+const t = getUI(locale);
+---
+
+<Layout
+  title={`${t.notFound} — Matías De Sousa`}
+  description={t.notFoundDescription}
+  locale={locale}
+>
+  <main id="contenido" class="not-found container">
+    <p class="eyebrow">{t.notFound}</p>
+    <h1>
+      404<span class="accent">.</span>
+    </h1>
+    <p>{t.notFoundText}</p>
+    <a class="button button-accent" href={homePath(locale)}>
+      {t.backHome}
+    </a>
+  </main>
+</Layout>

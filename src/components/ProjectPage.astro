@@ -1,0 +1,236 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getUI, homePath, type Locale } from '../i18n/ui';
+import type { Project } from '../data/projects';
+import { getProjectTour } from '../data/walkthroughs';
+import SculptureControl from './SculptureControl.astro';
+import ImageViewer from './ImageViewer.astro';
+interface Props {
+  project: Project;
+  locale?: Locale;
+}
+const { project, locale = 'es' } = Astro.props;
+const t = getUI(locale);
+const image = project.image;
+const imageAlt = project.imageAlt;
+const imageWidth = project.imageWidth ?? 1440;
+const imageHeight = project.imageHeight ?? 960;
+const caption = project.caption ?? t.defaultCaption;
+---
+
+<Layout
+  title={`${project.title} — Matías De Sousa`}
+  description={project.summary}
+  locale={locale}
+  tour={getProjectTour(project, Boolean(image), locale)}
+>
+  <main id="contenido" class="case-main container">
+    <a class="back-link" href={`${homePath(locale)}#proyectos`}>
+      {t.backProjects}
+    </a>
+    <header class="case-header">
+      <SculptureControl locale={locale} />
+      <p class="eyebrow">
+        {project.number} / {project.category}
+      </p>
+      <h1>
+        {project.title}
+        <span class="accent">.</span>
+      </h1>
+      <p class="case-summary">{project.summary}</p>
+      <ul class="tags" aria-label={t.technologies}>
+        {project.stack.map((tag) => (
+          <li>
+            <span data-tech-label>{tag}</span>
+            <button
+              class="tech-spark"
+              type="button"
+              aria-label={`${t.animateTechnology} ${tag}`}
+              hidden
+            >
+              {tag}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div class="case-actions">
+        <a
+          class="button button-accent"
+          href={project.repository}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t.repository}
+          <span class="sr-only">{t.newTab}</span>
+        </a>
+        {(project.website || project.demo) && (
+          <div class="project-live-links">
+            {project.website && (
+              <a
+                class="button button-secondary"
+                href={project.website}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t.visitOax} <span aria-hidden="true">↗</span>
+                <span class="sr-only">{t.newTab}</span>
+              </a>
+            )}
+            {project.demo && (
+              <a
+                class="project-demo-link"
+                href={project.demo}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t.demo} <span aria-hidden="true">↗</span>
+                <span class="sr-only">{t.newTab}</span>
+              </a>
+            )}
+          </div>
+        )}
+        <button
+          class="tour-trigger"
+          data-tour-start
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="page-tour"
+          hidden
+        >
+          {t.tourProject} <span aria-hidden="true">↗</span>
+        </button>
+      </div>
+    </header>
+    {image && (
+      <figure class="project-figure case-image">
+        <div class="image-stage">
+          <img
+            src={image}
+            alt={imageAlt}
+            width={imageWidth}
+            height={imageHeight}
+          />
+        </div>
+        <figcaption>
+          {caption}
+          {locale === 'en' && (
+            <span class="original-interface">{t.originalInterface}</span>
+          )}
+        </figcaption>
+        <button
+          class="image-expand"
+          data-image-open
+          type="button"
+          aria-haspopup="dialog"
+          hidden
+        >
+          {t.expand} <span aria-hidden="true">↗</span>
+        </button>
+      </figure>
+    )}
+    <section class="case-body" aria-labelledby="problem-title">
+      <h2 id="problem-title">{t.problem}</h2>
+      <p>{project.problem}</p>
+    </section>
+    <section class="case-body" aria-labelledby="features-title">
+      <h2 id="features-title">{t.features}</h2>
+      <dl class="project-features">
+        {project.features.map((feature) => (
+          <div>
+            <dt>{feature.title}</dt>
+            <dd>{feature.description}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+    <section class="case-body" aria-labelledby="workflow-title">
+      <h2 id="workflow-title">{t.workflow}</h2>
+      <div>
+        <ol class="workflow-list">
+          {project.workflow.map((step) => (
+            <li>
+              <h3>{step.title}</h3>
+              <p>{step.description}</p>
+            </li>
+          ))}
+        </ol>
+        <div class="project-example">
+          <h3>{t.example}</h3>
+          <p>{project.example}</p>
+        </div>
+      </div>
+    </section>
+    {project.gallery?.length && (
+      <section
+        class="project-gallery case-body"
+        aria-labelledby="gallery-title"
+      >
+        <div class="gallery-heading">
+          <h2 id="gallery-title">{t.gallery}</h2>
+          <span>
+            {project.gallery.length} {t.views}
+          </span>
+        </div>
+        <p>{project.gallerySummary}</p>
+        <ul class="gallery-grid">
+          {project.gallery.map((item, index) => (
+            <li>
+              <a
+                class="gallery-link"
+                href={item.src}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-gallery-index={index + 1}
+                aria-label={`${t.expandImage}: ${item.title}`}
+              >
+                <img
+                  src={item.src}
+                  alt={item.alt}
+                  width={item.width ?? 1440}
+                  height={item.height ?? 960}
+                  style={`--image-ratio:${item.width ?? 1440}/${item.height ?? 960}`}
+                  loading="lazy"
+                />
+                <span>
+                  {item.title}
+                  <span aria-hidden="true">↗</span>
+                </span>
+                {item.description && (
+                  <p class="gallery-description">{item.description}</p>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+    <section class="case-body" aria-labelledby="contribution-title">
+      <h2 id="contribution-title">{t.contribution}</h2>
+      <p>{project.contribution}</p>
+    </section>
+    <section class="case-body" aria-labelledby="decisions-title">
+      <h2 id="decisions-title">{t.decisions}</h2>
+      <ol class="decision-list">
+        {project.decisions.map((decision) => (
+          <li>{decision}</li>
+        ))}
+      </ol>
+    </section>
+    <section class="case-body" aria-labelledby="scope-title">
+      <h2 id="scope-title">{t.scope}</h2>
+      <p>{project.scope}</p>
+    </section>
+  </main>
+  {image && (
+    <ImageViewer
+      src={image}
+      alt={imageAlt!}
+      title={project.title}
+      caption={caption}
+      width={imageWidth}
+      height={imageHeight}
+      gallery={project.gallery}
+      locale={locale}
+    />
+  )}
+</Layout>
