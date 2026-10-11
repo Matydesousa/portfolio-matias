@@ -170,6 +170,17 @@ npm.cmd run test:e2e
 
 Las pruebas verifican páginas, imágenes, navegación, enlaces internos, ausencia de errores JavaScript, accesibilidad básica por teclado, movimiento reducido y desbordamientos en distintos tamaños. No sustituyen una auditoría completa de accesibilidad.
 
+Pruebas específicas de efectos en teléfonos, sobre la compilación estática:
+
+```powershell
+npx.cmd playwright install webkit
+npm.cmd run test:mobile
+```
+
+Esta suite utiliza Edge instalado y WebKit de Playwright, con dimensiones del iPhone 12 Pro Max, una pantalla de 320 px y orientación horizontal. Comprueba la cinta, caras traseras, colores, controles táctiles de la figura, detalles, recorridos y visor. Los arrastres y pellizcos nativos se verifican mediante CDP en Edge; WebKit comprueba toques y presentación, pero no sustituye Safari en un iPhone físico. El preview de pruebas utiliza el puerto 4399 y no modifica el servidor de desarrollo.
+
+En pantallas táctiles la figura tiene un espacio propio bajo la presentación, con giro horizontal e inercia y cambio de aspecto al tocarla. Los gestos verticales conservan el scroll normal. La cinta conserva su óvalo 3D, rotación automática y colores; oculta explícitamente las caras traseras para evitar texto invertido y solo se detiene por foco de teclado, pausa o visor. Las miniaturas revelan sus circuitos al detener el scroll; el nombre responde al toque y el fondo vacío admite una constelación con doble toque. Las animaciones de entrada y scroll se mantienen en móvil; las transiciones nativas de documento completo se reservan para puntero preciso, evitando capturas adicionales de toda la página en teléfonos.
+
 `npm.cmd run test:publication` verifica una compilación aislada con un dominio reservado para pruebas: canonical, vista previa social, alternates por idioma, XML del sitemap, robots y exclusión de las páginas de error. Usa el mismo navegador de Playwright (o `PLAYWRIGHT_BROWSER_PATH`). El dominio de prueba no se configura en `.env` ni en `dist`; la salida temporal se elimina al terminar. Ejecutar esta comprobación antes de la suite de navegador para evitar recompilaciones durante sus recorridos.
 
 La cinta mantiene el giro durante las visitas guiadas, incluso si se pausa el avance del recorrido. Cerrar la guía devuelve el foco al contenido sin detener el giro del contenedor. Abrir el visor de imágenes, pausar los efectos, solicitar movimiento reducido o enfocar una tarjeta con teclado conserva las pausas correspondientes. Soltar el puntero fuera de la cinta antes del umbral de arrastre también libera el agarre.
@@ -215,7 +226,7 @@ Para publicar:
 npm.cmd exec --yes --package=wrangler@4.149.0 -- wrangler deploy --autoconfig=false
 ```
 
-Wrangler vuelve a ejecutar `npm run build` antes de desplegar, por lo que la configuración de URL debe estar disponible también en ese proceso. Tras publicar, verificar la dirección real, el sitemap, robots, las rutas ES/EN, los recursos y HTTP 404. La publicación por CLI no conecta automáticamente el repositorio a Workers Builds: un push a GitHub todavía requiere ejecutar el despliegue para actualizar la web. Al conectar Workers Builds, configurar también `PUBLIC_SITE_URL` en sus variables de compilación.
+Wrangler vuelve a ejecutar `npm run build` antes de desplegar, por lo que la configuración de URL debe estar disponible también en ese proceso. Tras publicar, verificar la dirección real, el sitemap, robots, las rutas ES/EN, los recursos y HTTP 404. La publicación por CLI no conecta automáticamente el repositorio a Workers Builds. La conexión de este portfolio con `main` ya quedó configurada en el panel; falta verificar la primera compilación automática tras un push. Conservar `PUBLIC_SITE_URL` en las variables de compilación de Workers Builds.
 
 ### Activar publicación automática desde GitHub
 
