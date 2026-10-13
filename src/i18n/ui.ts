@@ -48,7 +48,8 @@ export const ui = {
     stackToolsText: 'Control de versiones y gestión de dependencias.',
     stackProjects: 'Proyectos web y académicos',
     stackProjectsText: 'Tecnologías aplicadas en mis proyectos públicos.',
-    stackHint: 'Elegí un grupo para destacarlo.',
+    stackDevelopment: 'Herramientas en desarrollo',
+    stackDevelopmentText: 'Tecnologías que utilizo en proyectos en desarrollo.',
     highlightStack: 'Destacar',
     tourStackText:
       'Estos grupos separan mi experiencia principal, las herramientas y las tecnologías de otros proyectos. Podés elegir cuál destacar con un clic o toque.',
@@ -196,7 +197,8 @@ export const ui = {
     stackToolsText: 'Version control and dependency management.',
     stackProjects: 'Web and academic projects',
     stackProjectsText: 'Technologies used in my public projects.',
-    stackHint: 'Choose a group to highlight.',
+    stackDevelopment: 'Technologies in ongoing projects',
+    stackDevelopmentText: 'Technologies I use in projects under development.',
     highlightStack: 'Highlight',
     tourStackText:
       'These groups separate my main experience, tools and technologies used in other projects. Click or tap a group to highlight it.',

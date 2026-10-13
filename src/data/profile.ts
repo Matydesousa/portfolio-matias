@@ -12,9 +12,10 @@ export const profile = {
 };
 
 export const technologyStack = {
-  primary: ['PHP', 'Laravel', 'MySQL'],
-  tools: ['Git', 'GitHub', 'Composer', 'npm'],
-  projects: ['HTML', 'CSS', 'JavaScript', 'Blade', 'Java', 'Python', 'C'],
+  primary: ['PHP', 'Laravel', 'MySQL', 'Blade'],
+  tools: ['Git', 'GitHub', 'Composer'],
+  projects: ['HTML', 'CSS', 'JavaScript', 'Java', 'Python', 'C'],
+  development: ['React', 'Inertia'],
 };
 
 export const experience = [

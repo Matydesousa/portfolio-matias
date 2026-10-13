@@ -10,10 +10,6 @@ export function initializeStackSelection() {
       false;
     card.querySelector<HTMLElement>('[data-stack-title]')!.hidden = true;
   });
-  const hint =
-    groups.parentElement?.querySelector<HTMLElement>('[data-stack-hint]');
-  if (hint) hint.hidden = false;
-
   groups.addEventListener('click', (event) => {
     if (!(event.target instanceof Element)) return;
     const selected = event.target.closest<HTMLElement>('[data-stack-group]');
