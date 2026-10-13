@@ -11,6 +11,110 @@ const routes = [
   '/en/projects/oax-demo/',
 ];
 
+test('fluidez: cuadro táctil, cambios agrupados y banda sin relayout', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+  const ribbon = page.locator('.project-ribbon');
+  await ribbon.scrollIntoViewIfNeeded();
+  await page.clock.runFor(1000);
+  await expect(ribbon).toHaveAttribute('data-running', 'true');
+  await expect(page.locator('.tour-trigger .arrow-up-right')).toHaveCount(1);
+  expect(await page.locator('.tour-trigger').textContent()).not.toContain('↗');
+  const compact = await ribbon
+    .locator('.ribbon-viewport')
+    .evaluate((el) => el.clientWidth < 660);
+  const count = await ribbon.locator('.ribbon-segment:not([hidden])').count();
+  expect(count).toBe(compact ? 24 : 48);
+  await ribbon.evaluate((el) => {
+    const track = el.querySelector<HTMLElement>('.ribbon-track')!;
+    const state = window as unknown as {
+      ribbonPaints: number;
+      bandWidths: number;
+    };
+    state.ribbonPaints = state.bandWidths = 0;
+    const original = CSSStyleDeclaration.prototype.setProperty;
+    CSSStyleDeclaration.prototype.setProperty = function (
+      name,
+      value,
+      priority,
+    ) {
+      if (this === track.style && name === '--ring-phase') state.ribbonPaints++;
+      if (name === '--segment-width') state.bandWidths++;
+      original.call(this, name, value, priority);
+    };
+  });
+  await page.clock.runFor(160);
+  const cadence = await page.evaluate(
+    () => (window as unknown as { ribbonPaints: number }).ribbonPaints,
+  );
+  expect(cadence).toBeGreaterThanOrEqual(8);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { bandWidths: number }).bandWidths,
+    ),
+  ).toBe(0);
+  const viewport = ribbon.locator('.ribbon-viewport');
+  const box = (await viewport.boundingBox())!;
+  await viewport.evaluate((el) =>
+    el.addEventListener(
+      'pointerdown',
+      (e) => {
+        (window as unknown as { ribbonPointer: number }).ribbonPointer = (
+          e as PointerEvent
+        ).pointerId;
+      },
+      { once: true },
+    ),
+  );
+  await page.mouse.move(box.x + box.width / 2, box.y + 8);
+  await page.mouse.down();
+  await viewport.evaluate((el, box) => {
+    const state = window as unknown as {
+      ribbonPaints: number;
+      ribbonPointer: number;
+    };
+    state.ribbonPaints = 0;
+    for (let i = 1; i <= 20; i++)
+      el.dispatchEvent(
+        new PointerEvent('pointermove', {
+          bubbles: true,
+          pointerType: 'mouse',
+          pointerId: state.ribbonPointer,
+          clientX: box.x + box.width / 2 - i * 3,
+          clientY: box.y + 8,
+          buttons: 1,
+        }),
+      );
+  }, box);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { ribbonPaints: number }).ribbonPaints,
+    ),
+  ).toBe(0);
+  await page.clock.runFor(16);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { ribbonPaints: number }).ribbonPaints,
+    ),
+  ).toBe(1);
+  await page.mouse.up();
+  await page.locator('.motion-toggle').tap();
+  await page.clock.runFor(100);
+  const paused = await page.evaluate(
+    () => (window as unknown as { ribbonPaints: number }).ribbonPaints,
+  );
+  await page.clock.runFor(200);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { ribbonPaints: number }).ribbonPaints,
+    ),
+  ).toBe(paused);
+});
+
 test('sorpresa táctil: repetición rápida, luces visibles y sin scroll', async ({
   page,
   context,

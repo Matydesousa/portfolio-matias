@@ -130,6 +130,19 @@ const t = getUI(locale);
 </script>
 
 <style>
+  /* Phase is controller state, not inherited styling. Registering it avoids
+     invalidating every SVG descendant whenever the ring advances. */
+  @property --ring-phase {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 0;
+  }
+  @property --band-light {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 1;
+  }
+
   .project-ribbon {
     --card-width: 280px;
     --card-height: 192px;
@@ -343,6 +356,9 @@ const t = getUI(locale);
   }
   .project-ribbon[data-projected] .ribbon-group {
     z-index: 1;
+  }
+  .project-ribbon[data-projected] .ribbon-group li {
+    will-change: transform;
   }
   .project-ribbon[data-enhanced] .ribbon-surface {
     display: block;

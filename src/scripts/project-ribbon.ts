@@ -31,6 +31,32 @@ export function initializeProjectRibbon() {
   let lastFrame = 0;
   let lastPaint = 0;
   let measureFrame = 0;
+  let dirty = false;
+  let bandWidth = 0;
+  let bandHalfSin = 0;
+  let bandHalfCos = 0;
+  const units = (count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const angle = (index * Math.PI * 2) / count;
+      return { sine: Math.sin(angle), cosine: Math.cos(angle) };
+    });
+  const cardUnits = units(slots.length);
+  let bandUnits = units(segments.length);
+  let activeSegments = segments;
+  const setVariable = (
+    style: CSSStyleDeclaration,
+    name: string,
+    value: string,
+  ) => {
+    if (style.getPropertyValue(name) !== value) style.setProperty(name, value);
+  };
+  const setStyle = (
+    style: CSSStyleDeclaration,
+    name: 'transform' | 'zIndex',
+    value: string,
+  ) => {
+    if (style[name] !== value) style[name] = value;
+  };
   let suppressClick = false;
   let keyboardFocus = false;
   let tilt = 0;
@@ -97,99 +123,128 @@ export function initializeProjectRibbon() {
     ribbon.style.setProperty('--wake-strength', wakeIntensity.toFixed(3));
     ribbon.style.setProperty('--wake-direction', String(surge.direction));
     ribbon.style.setProperty('--wake-expansion', String(1 + progress * 0.5));
-    ribbon.dataset.wake = '';
+    if (!ribbon.hasAttribute('data-wake')) ribbon.dataset.wake = '';
   }
   function paint() {
     if (!enhanced) return;
     updateWake();
-    viewport.scrollLeft = 0;
     const phase = cycle ? (physics.position / cycle) * Math.PI * 2 : 0;
     track.style.setProperty('--ring-phase', String(phase));
+    const phaseSin = Math.sin(phase),
+      phaseCos = Math.cos(phase);
     const pitch = ((inclination + pointer.y * 1.2 + tilt) * Math.PI) / 180;
     const sinPitch = Math.sin(pitch),
       cosPitch = Math.cos(pitch);
     const perspective = 1200;
     // Project the same 3D ring explicitly on small screens. Nested preserve-3d
     // can be flattened by WebKit; independent affine faces retain its depth.
-    const projectFace = (x: number, z: number, normal: number) => {
+    const projectFace = (
+      x: number,
+      z: number,
+      normalSin: number,
+      normalCos: number,
+      stretch = 1,
+    ) => {
       const y = -z * sinPitch;
       const scale = perspective / (perspective - z * cosPitch + radiusZ);
       const slope = (scale * scale) / perspective;
-      const normalSin = Math.sin(normal),
-        normalCos = Math.cos(normal);
       const depthX = -normalSin * cosPitch;
       return (
         'matrix(' +
         [
-          scale * normalCos + x * slope * depthX,
-          scale * normalSin * sinPitch + y * slope * depthX,
+          (scale * normalCos + x * slope * depthX) * stretch,
+          (scale * normalSin * sinPitch + y * slope * depthX) * stretch,
           x * slope * sinPitch,
           scale * cosPitch + y * slope * sinPitch,
           x * scale,
           y * scale,
-        ].join(',') +
+        ]
+          .map((value) => value.toFixed(6))
+          .join(',') +
         ')'
       );
     };
-    track.style.transform = projected
-      ? 'translate(' +
-        pointer.x * 7 +
-        'px,' +
-        (pointer.y * 3 + tilt * 0.6) +
-        'px)'
-      : 'translate3d(' +
-        pointer.x * 7 +
-        'px,' +
-        (pointer.y * 3 + tilt * 0.6) +
-        'px,' +
-        -radiusZ +
-        'px) rotateX(' +
-        (inclination + pointer.y * 1.2 + tilt) +
-        'deg) rotateY(' +
-        pointer.x * 0.8 +
-        'deg)';
+    setStyle(
+      track.style,
+      'transform',
+      projected
+        ? 'translate(' +
+            pointer.x * 7 +
+            'px,' +
+            (pointer.y * 3 + tilt * 0.6) +
+            'px)'
+        : 'translate3d(' +
+            pointer.x * 7 +
+            'px,' +
+            (pointer.y * 3 + tilt * 0.6) +
+            'px,' +
+            -radiusZ +
+            'px) rotateX(' +
+            (inclination + pointer.y * 1.2 + tilt) +
+            'deg) rotateY(' +
+            pointer.x * 0.8 +
+            'deg)',
+    );
     slots.forEach((slot, index) => {
-      const angle = phase + (index * Math.PI * 2) / slots.length;
-      const sine = Math.sin(angle),
-        cosine = Math.cos(angle);
-      // Tangent orientation keeps cards rigid instead of stretching an entire ring.
-      const normal = Math.atan2(radiusZ * sine, radiusX * cosine);
+      const unit = cardUnits[index];
+      const sine = phaseSin * unit.cosine + phaseCos * unit.sine;
+      const cosine = phaseCos * unit.cosine - phaseSin * unit.sine;
+      // Normalize the ellipse tangent once; the affine projection needs no atan2.
+      const length = Math.hypot(radiusX * cosine, radiusZ * sine);
+      const normalSin = (radiusZ * sine) / length;
+      const normalCos = (radiusX * cosine) / length;
       // Explicit culling also works on WebKit ports that flatten nested 3D
       // layers. Opacity keeps back cards in the keyboard/accessibility order.
-      const faceNormal = Math.cos(normal);
+      const faceNormal = normalCos;
       const facing = projected
         ? faceNormal * cosPitch -
-          (radiusZ * cosine * faceNormal + radiusX * sine * Math.sin(normal)) /
+          (radiusZ * cosine * faceNormal + radiusX * sine * normalSin) /
             (perspective + radiusZ)
         : faceNormal;
-      slot.dataset.facing = facing > 0.06 ? 'front' : 'back';
-      slot.style.zIndex = String(100 + Math.round(cosine * 100));
-      slot.style.transform = projected
-        ? projectFace(radiusX * sine, radiusZ * cosine, normal)
-        : 'translate3d(' +
-          radiusX * sine +
-          'px,0,' +
-          radiusZ * cosine +
-          'px) rotateY(' +
-          normal +
-          'rad)';
-      cards[index].style.setProperty(
+      const side = facing > 0.06 ? 'front' : 'back';
+      if (slot.dataset.facing !== side) slot.dataset.facing = side;
+      setStyle(slot.style, 'zIndex', String(100 + Math.round(cosine * 100)));
+      setStyle(
+        slot.style,
+        'transform',
+        projected
+          ? projectFace(radiusX * sine, radiusZ * cosine, normalSin, normalCos)
+          : 'translate3d(' +
+              radiusX * sine +
+              'px,0,' +
+              radiusZ * cosine +
+              'px) rotateY(' +
+              Math.atan2(normalSin, normalCos) +
+              'rad)',
+      );
+      setVariable(
+        cards[index].style,
         '--face-light',
-        String(0.02 + Math.max(0, Math.cos(normal)) * 0.08),
+        (
+          Math.round((0.02 + Math.max(0, normalCos) * 0.08) * 200) / 200
+        ).toFixed(3),
       );
     });
-    const halfStep = Math.PI / segments.length;
-    segments.forEach((segment, index) => {
-      const angle = phase + (index * Math.PI * 2) / segments.length;
-      const sine = Math.sin(angle),
-        cosine = Math.cos(angle);
-      const x = radiusX - 8,
-        z = radiusZ - 8;
-      const normal = Math.atan2(z * sine, x * cosine);
-      segment.style.setProperty(
-        '--band-light',
-        String(0.2 + Math.max(0, Math.cos(normal)) * 0.8),
-      );
+    const x = radiusX - 8,
+      z = radiusZ - 8;
+    activeSegments.forEach((segment, index) => {
+      const unit = bandUnits[index];
+      const sine = phaseSin * unit.cosine + phaseCos * unit.sine;
+      const cosine = phaseCos * unit.cosine - phaseSin * unit.sine;
+      const angle = phase + (index * Math.PI * 2) / activeSegments.length;
+      const length = Math.hypot(x * cosine, z * sine);
+      const normalSin = (z * sine) / length,
+        normalCos = (x * cosine) / length;
+      // Navy does not use per-face opacity. Quantize subtle light changes so
+      // SVGs and card backgrounds do not rerasterize at every animation frame.
+      if (ribbon.dataset.tone !== '0')
+        setVariable(
+          segment.style,
+          '--band-light',
+          (
+            Math.round((0.2 + Math.max(0, normalCos) * 0.8) * 100) / 100
+          ).toFixed(2),
+        );
       if (wakeIntensity) {
         // Uneven pockets of light travel on the actual ellipse, including the
         // affine mobile projection, rather than a flat halo over the cards.
@@ -207,22 +262,31 @@ export function initializeProjectRibbon() {
           String((0.5 + pocket * 0.5) * (0.55 + Math.max(0, cosine) * 0.45)),
         );
       }
-      const width =
-        2 * Math.sin(halfStep) * Math.hypot(x * cosine, z * sine) + 0.8;
-      segment.style.setProperty('--segment-width', width + 'px');
-      segment.style.transform = projected
-        ? projectFace(
-            x * sine * Math.cos(halfStep),
-            z * cosine * Math.cos(halfStep),
-            normal,
-          )
-        : 'translate3d(' +
-          x * sine * Math.cos(halfStep) +
-          'px,0,' +
-          z * cosine * Math.cos(halfStep) +
-          'px) rotateY(' +
-          normal +
-          'rad)';
+      const width = 2 * bandHalfSin * length + 0.8;
+      // A fixed raster/layout width with transform stretching avoids changing
+      // SVG viewport dimensions, borders and margins for every rotating face.
+      const stretch = width / bandWidth;
+      setStyle(
+        segment.style,
+        'transform',
+        projected
+          ? projectFace(
+              x * sine * bandHalfCos,
+              z * cosine * bandHalfCos,
+              normalSin,
+              normalCos,
+              stretch,
+            )
+          : 'translate3d(' +
+              x * sine * bandHalfCos +
+              'px,0,' +
+              z * cosine * bandHalfCos +
+              'px) rotateY(' +
+              Math.atan2(normalSin, normalCos) +
+              'rad) scaleX(' +
+              stretch +
+              ')',
+      );
     });
   }
   function finish(cancelled = false) {
@@ -236,7 +300,7 @@ export function initializeProjectRibbon() {
       physics.stop();
       resetWake();
       tilt = 0;
-      paint();
+      requestPaint();
     } else physics.release((performance.now() - current.time) / 1000);
     if (current.active) suppressClick = true;
     if (document.activeElement === viewport) viewport.blur();
@@ -255,26 +319,37 @@ export function initializeProjectRibbon() {
         wakeActive)
     );
   }
+  function requestPaint() {
+    dirty = true;
+    if (!frame) {
+      lastFrame = performance.now();
+      frame = requestAnimationFrame(tick);
+    }
+  }
   function tick(now: number) {
     frame = 0;
-    if (!shouldAnimate()) return;
-    const interval = !drag && Math.abs(physics.velocity) > 80 ? 16 : 32;
-    if (now - lastPaint >= interval) {
+    const animate = shouldAnimate();
+    if (!animate && !dirty) return;
+    // Touch rotation follows the display cadence, including slow automatic
+    // motion. Desktop keeps its economical resting cadence.
+    const interval =
+      fine.matches && !drag && Math.abs(physics.velocity) <= 80 ? 32 : 0;
+    if (dirty || now - lastPaint >= interval) {
       const elapsed = Math.min(0.06, (now - lastFrame) / 1000);
-      if (!drag) {
+      if (animate && !drag) {
         physics.step(elapsed);
         const blend = 1 - Math.exp(-elapsed / 0.14);
         pointer.x += (pointer.targetX - pointer.x) * blend;
         pointer.y += (pointer.targetY - pointer.y) * blend;
-        // Small vertical deflection returns gently; it cannot turn the ring over.
         tilt *= Math.exp(-elapsed / 0.28);
       }
       if (Math.abs(tilt) < 0.01) tilt = 0;
       lastFrame = lastPaint = now;
       wrap();
+      dirty = false;
       paint();
     }
-    if (shouldAnimate()) frame = requestAnimationFrame(tick);
+    if (shouldAnimate() || dirty) frame = requestAnimationFrame(tick);
     else ribbon.dataset.running = 'false';
   }
   function sync() {
@@ -302,7 +377,7 @@ export function initializeProjectRibbon() {
         );
         if (focused >= 0) {
           physics.position = (-focused * cycle) / cards.length;
-          paint();
+          requestPaint();
         }
         return;
       }
@@ -319,7 +394,7 @@ export function initializeProjectRibbon() {
     }
     if (!motionAllowed() && tilt) {
       tilt = 0;
-      paint();
+      requestPaint();
     }
     if (
       (!allowed ||
@@ -334,7 +409,7 @@ export function initializeProjectRibbon() {
       physics.stop();
       resetPointer();
       resetWake();
-      paint();
+      requestPaint();
     }
     if (focusInside()) resetWake();
     const run = shouldRun();
@@ -343,7 +418,7 @@ export function initializeProjectRibbon() {
     if (animate && !frame) {
       lastFrame = lastPaint = performance.now();
       frame = requestAnimationFrame(tick);
-    } else if (!animate) {
+    } else if (!animate && !dirty) {
       cancelAnimationFrame(frame);
       frame = 0;
     }
@@ -358,6 +433,15 @@ export function initializeProjectRibbon() {
     const cardHeight = Math.max(...cards.map((card) => card.offsetHeight));
     const compact = viewport.clientWidth < 660;
     projected = compact;
+    viewport.scrollLeft = 0;
+    activeSegments = segments.filter((segment, index) => {
+      const used = !compact || index % 2 === 0;
+      segment.hidden = !used;
+      return used;
+    });
+    bandUnits = units(activeSegments.length);
+    bandHalfSin = Math.sin(Math.PI / activeSegments.length);
+    bandHalfCos = Math.cos(Math.PI / activeSegments.length);
     ribbon.toggleAttribute('data-projected', projected);
     inclination = compact ? -16 : -10;
     radiusX = Math.max(
@@ -367,6 +451,10 @@ export function initializeProjectRibbon() {
     radiusZ = compact
       ? Math.max(56, Math.min(104, radiusX * 0.62))
       : Math.min(210, Math.max(110, radiusX * 0.48));
+    bandWidth = 2 * bandHalfSin * Math.max(radiusX - 8, radiusZ - 8) + 0.8;
+    activeSegments.forEach((segment) =>
+      segment.style.setProperty('--segment-width', bandWidth + 'px'),
+    );
     cycle = 2 * Math.PI * radiusX;
     physics.position = previous ? (physics.position * cycle) / previous : 0;
     const rise = radiusZ * Math.sin((-inclination * Math.PI) / 180);
@@ -390,7 +478,7 @@ export function initializeProjectRibbon() {
     physics.stop();
     resetWake();
     tilt = 0;
-    paint();
+    requestPaint();
     sync();
   }
   function move(direction: number) {
@@ -398,7 +486,7 @@ export function initializeProjectRibbon() {
     physics.stop();
     physics.position += (direction * cycle) / cards.length;
     wrap();
-    paint();
+    requestPaint();
   }
   function changeColor() {
     ribbon.dataset.tone = String((Number(ribbon.dataset.tone) + 1) % 3);
@@ -484,7 +572,7 @@ export function initializeProjectRibbon() {
     drag.x = event.clientX;
     drag.time = now;
     wrap();
-    paint();
+    requestPaint();
     sync();
   });
   // Single-finger gestures belong to the object from their starting surface.
@@ -554,7 +642,7 @@ export function initializeProjectRibbon() {
         -2.2,
         Math.min(2.2, tilt + (event.key === 'ArrowUp' ? -0.7 : 0.7)),
       );
-      paint();
+      requestPaint();
       return;
     }
     if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
@@ -576,7 +664,7 @@ export function initializeProjectRibbon() {
     const card = (event.target as Element).closest<HTMLElement>('.ribbon-card');
     if (card && original.contains(card))
       physics.position = (-cards.indexOf(card) * cycle) / cards.length;
-    paint();
+    requestPaint();
     sync();
   });
   document.addEventListener(
@@ -589,7 +677,7 @@ export function initializeProjectRibbon() {
   ribbon.addEventListener('focusout', () =>
     queueMicrotask(() => {
       wrap();
-      paint();
+      requestPaint();
       sync();
     }),
   );
@@ -627,7 +715,7 @@ export function initializeProjectRibbon() {
   reduced.addEventListener('change', sync);
   fine.addEventListener('change', () => {
     resetPointer();
-    paint();
+    requestPaint();
     sync();
   });
   document.addEventListener('visibilitychange', sync);

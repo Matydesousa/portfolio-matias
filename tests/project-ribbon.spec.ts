@@ -528,12 +528,14 @@ test('inclinación vertical limitada, retorno suave y teclado sin voltear la cin
     el.style.getPropertyValue('--ring-phase'),
   );
   await page.mouse.move(x, y + 200, { steps: 4 });
+  await page.clock.runFor(16);
   await expect(ribbon).toHaveAttribute('data-dragging', 'true');
   expect(await pitch()).toBeCloseTo(normal + 2.2, 2);
   expect(
     await track.evaluate((el) => el.style.getPropertyValue('--ring-phase')),
   ).toBe(phase);
   await page.mouse.move(x, y - 120, { steps: 4 });
+  await page.clock.runFor(16);
   expect(await pitch()).toBeCloseTo(normal - 2.2, 2);
   await page.mouse.up();
   await expect(ribbon).toHaveAttribute('data-tone', '0');
@@ -542,8 +544,10 @@ test('inclinación vertical limitada, retorno suave y teclado sin voltear la cin
   expect(await pitch()).toBeCloseTo(normal, 1);
   await viewport.focus();
   for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowDown');
+  await page.clock.runFor(16);
   expect(await pitch()).toBeCloseTo(-7.8, 2);
   for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowUp');
+  await page.clock.runFor(16);
   expect(await pitch()).toBeCloseTo(-12.2, 2);
   await page
     .getByRole('button', { name: 'Pausar efectos', exact: true })
@@ -646,6 +650,7 @@ test('movimiento continuo, arrastre/inercia sin clic accidental y pausas', async
   const held = await transform();
   await page.mouse.down();
   await page.mouse.move(x + 130, y, { steps: 5 });
+  await page.clock.runFor(16);
   const dragged = await transform();
   expect(dragged).not.toBe(held);
   await page.mouse.up();
@@ -664,12 +669,14 @@ test('movimiento continuo, arrastre/inercia sin clic accidental y pausas', async
   expect(Number(await transform())).toBeLessThan(Number(stopped));
   await viewport.focus();
   await page.keyboard.press('Space');
+  await page.clock.runFor(16);
   await expect(ribbon).toHaveAttribute('data-tone', '1');
   const focused = await transform();
   await page.clock.runFor(500);
   expect(await transform()).toBe(focused);
   // Keyboard stays stable, but deliberately moving to another card is available.
   await page.keyboard.press('ArrowRight');
+  await page.clock.runFor(16);
   expect(await transform()).not.toBe(focused);
   await page
     .getByRole('button', { name: 'Pausar efectos', exact: true })
@@ -760,6 +767,7 @@ test('óvalo 3D: geometría sin deformar tarjetas y superficie continua para aga
   await page.mouse.down();
   await page.mouse.move(b.x + b.width / 2 + 90, b.y + 12, { steps: 5 });
   await page.mouse.up();
+  await page.clock.runFor(16);
   expect(
     await ribbon
       .locator('.ribbon-track')
