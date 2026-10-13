@@ -55,6 +55,12 @@ const experience = getExperience(locale);
       </h1>
       <p class="intro-description">{t.intro}</p>
       <p class="availability">{t.availability}</p>
+      <a
+        class="button email-cta intro-email-cta"
+        href={`mailto:${profile.email}`}
+      >
+        {t.contactByEmail}
+      </a>
       <button
         class="tour-trigger"
         data-tour-start
@@ -137,6 +143,9 @@ const experience = getExperience(locale);
         <p>{t.contactText}</p>
       </div>
       <div class="contact-links">
+        <a class="button email-cta" href={`mailto:${profile.email}`}>
+          {t.contactByEmail}
+        </a>
         <EmailCopy email={profile.email} locale={locale} />
         <a href={profile.linkedin} target="_blank" rel="noopener noreferrer">
           LinkedIn<span class="sr-only">{t.newTab}</span>

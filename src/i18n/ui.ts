@@ -45,6 +45,7 @@ export const ui = {
     developmentText:
       'Mi proyecto personal de administración financiera colaborativa con Laravel, Inertia y React.',
     contactText: '¿Un proyecto o una oportunidad? Podés escribirme.',
+    contactByEmail: 'Contactarme por email',
     copyEmail: 'Copiar correo',
     copied: 'Correo copiado.',
     copyFailed:
@@ -184,6 +185,7 @@ export const ui = {
     developmentText:
       'My personal project for collaborative financial management, built with Laravel, Inertia and React.',
     contactText: 'A project or an opportunity? Feel free to get in touch.',
+    contactByEmail: 'Contact me by email',
     copyEmail: 'Copy email',
     copied: 'Email copied.',
     copyFailed:

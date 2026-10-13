@@ -262,6 +262,15 @@ html[data-scene-dragging='true'] * {
 .intro .tour-trigger {
   margin-top: 14px;
 }
+.intro-email-cta {
+  margin-top: 18px;
+  margin-right: 16px;
+  vertical-align: middle;
+}
+.email-cta:hover,
+.contact-links .email-cta:hover {
+  text-decoration: none;
+}
 .tour-trigger[hidden] {
   display: none;
 }
