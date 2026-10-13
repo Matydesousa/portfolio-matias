@@ -1,4 +1,5 @@
 ---
+import ArrowUpRight from './ArrowUpRight.astro';
 import type { Project } from '../data/projects';
 import { getUI, projectPath, type Locale } from '../i18n/ui';
 interface Props {
@@ -113,7 +114,7 @@ const t = getUI(locale);
               <h3>{project.title}</h3>
               <p>{project.stack.slice(0, 3).join(' · ')}</p>
               <span class="ribbon-card-arrow" aria-hidden="true">
-                ↗
+                <ArrowUpRight />
               </span>
             </a>
           </li>

@@ -1,4 +1,5 @@
 ---
+import ArrowUpRight from './ArrowUpRight.astro';
 import Layout from '../layouts/Layout.astro';
 import { profile } from '../data/profile';
 import { getProjects, getExperience } from '../i18n/content';
@@ -62,7 +63,10 @@ const experience = getExperience(locale);
         aria-controls="page-tour"
         hidden
       >
-        {t.tourPortfolio} <span aria-hidden="true">↗</span>
+        {t.tourPortfolio}{' '}
+        <span aria-hidden="true">
+          <ArrowUpRight />
+        </span>
       </button>
       <SculptureControl locale={locale} />
     </section>

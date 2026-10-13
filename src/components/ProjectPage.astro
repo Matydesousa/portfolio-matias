@@ -1,4 +1,5 @@
 ---
+import ArrowUpRight from './ArrowUpRight.astro';
 import Layout from '../layouts/Layout.astro';
 import { getUI, homePath, type Locale } from '../i18n/ui';
 import type { Project } from '../data/projects';
@@ -71,7 +72,10 @@ const caption = project.caption ?? t.defaultCaption;
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {t.visitOax} <span aria-hidden="true">↗</span>
+                {t.visitOax}{' '}
+                <span aria-hidden="true">
+                  <ArrowUpRight />
+                </span>
                 <span class="sr-only">{t.newTab}</span>
               </a>
             )}
@@ -82,7 +86,10 @@ const caption = project.caption ?? t.defaultCaption;
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {t.demo} <span aria-hidden="true">↗</span>
+                {t.demo}{' '}
+                <span aria-hidden="true">
+                  <ArrowUpRight />
+                </span>
                 <span class="sr-only">{t.newTab}</span>
               </a>
             )}
@@ -96,7 +103,10 @@ const caption = project.caption ?? t.defaultCaption;
           aria-controls="page-tour"
           hidden
         >
-          {t.tourProject} <span aria-hidden="true">↗</span>
+          {t.tourProject}{' '}
+          <span aria-hidden="true">
+            <ArrowUpRight />
+          </span>
         </button>
       </div>
       <SculptureControl locale={locale} />
@@ -124,7 +134,10 @@ const caption = project.caption ?? t.defaultCaption;
           aria-haspopup="dialog"
           hidden
         >
-          {t.expand} <span aria-hidden="true">↗</span>
+          {t.expand}{' '}
+          <span aria-hidden="true">
+            <ArrowUpRight />
+          </span>
         </button>
       </figure>
     )}
@@ -193,7 +206,9 @@ const caption = project.caption ?? t.defaultCaption;
                 />
                 <span>
                   {item.title}
-                  <span aria-hidden="true">↗</span>
+                  <span aria-hidden="true">
+                    <ArrowUpRight />
+                  </span>
                 </span>
                 {item.description && (
                   <p class="gallery-description">{item.description}</p>
