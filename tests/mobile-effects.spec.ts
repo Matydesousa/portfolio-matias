@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const routes = [
   '/',
@@ -158,6 +158,141 @@ test('figura táctil: espacio propio, ensamblado, cambio de aspecto y pausa', as
   await expect(page.locator('.project-ribbon .ribbon-card')).toHaveCount(5);
 });
 
+test('figura móvil: canvas unido al espacio de agarre durante scroll, pausa y cambios de altura', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  for (const route of routes) {
+    await page.goto(route);
+    const handle = page.locator('.scene-handle');
+    await handle.scrollIntoViewIfNeeded();
+    await expect(handle).toBeVisible();
+    const alignment = () =>
+      page.evaluate(() => {
+        const canvas =
+          document.querySelector<HTMLCanvasElement>('.ambient-canvas')!;
+        const anchor = document.querySelector<HTMLElement>('.scene-anchor')!;
+        const c = canvas.getBoundingClientRect(),
+          a = anchor.getBoundingClientRect();
+        return {
+          local: canvas.parentElement === anchor,
+          absolute: getComputedStyle(canvas).position === 'absolute',
+          difference: Math.max(
+            Math.abs(c.top - a.top),
+            Math.abs(c.left - a.left),
+            Math.abs(c.width - a.width),
+            Math.abs(c.height - a.height),
+          ),
+          bitmapWidth: canvas.width,
+          expectedWidth: Math.round(
+            anchor.clientWidth * Math.min(devicePixelRatio, 1.5),
+          ),
+        };
+      });
+    for (const offset of [100, 220, 60, 0]) {
+      await page.evaluate(
+        (top) => scrollTo({ top, behavior: 'instant' }),
+        offset,
+      );
+      await expect
+        .poll(async () => (await alignment()).difference)
+        .toBeLessThan(1);
+      const layout = await alignment();
+      expect(layout.local).toBe(true);
+      expect(layout.absolute).toBe(true);
+      expect(layout.bitmapWidth).toBe(layout.expectedWidth);
+    }
+    await page.locator('.motion-toggle').tap();
+    await expect(handle).toBeHidden();
+    await page.locator('.motion-toggle').tap();
+    await expect(handle).toBeVisible();
+    await expect
+      .poll(async () => (await alignment()).difference)
+      .toBeLessThan(1);
+  }
+  const size = page.viewportSize()!;
+  await page.setViewportSize({ width: size.width, height: size.height - 80 });
+  const canvas = page.locator('.scene-anchor > .ambient-canvas');
+  await expect(canvas).toBeAttached();
+  expect(
+    await canvas.evaluate((el) => (el as HTMLCanvasElement).width),
+  ).toBeLessThan(size.width * 1.5);
+  expect(errors).toEqual([]);
+});
+
+test('cinta táctil: arrastre continuo desde miniatura, título y tarjeta sin cancelación ni navegación', async ({
+  page,
+  context,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== 'chromium',
+    'Native multi-event touch supplied by CDP in Chromium.',
+  );
+  const session = await context.newCDPSession(page);
+  for (const route of ['/', '/proyectos/oax-demo/']) {
+    await page.goto(route);
+    const ribbon = page.locator('.project-ribbon');
+    await ribbon.scrollIntoViewIfNeeded();
+    for (const selector of ['img', 'h3', 'a.ribbon-card']) {
+      const point = await page.evaluate((selector) => {
+        const box = document
+          .querySelector('.ribbon-viewport')!
+          .getBoundingClientRect();
+        for (
+          let y = box.top + 20;
+          y < Math.min(innerHeight - 20, box.bottom - 20);
+          y += 5
+        )
+          for (let x = innerWidth / 2 - 70; x < innerWidth / 2 + 60; x += 5) {
+            const hit = document.elementFromPoint(x, y);
+            if (hit?.matches(selector) && hit.closest('.ribbon-card'))
+              return { x, y };
+          }
+        throw new Error('No visible touch target: ' + selector);
+      }, selector);
+      const phase = () =>
+        ribbon
+          .locator('.ribbon-track')
+          .evaluate((el) => Number(el.style.getPropertyValue('--ring-phase')));
+      const initialScroll = await page.evaluate(() => scrollY);
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ ...point, id: 1 }],
+      });
+      let previous = await phase();
+      for (let i = 1; i <= 5; i++) {
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{ x: point.x + i * 12, y: point.y + i * 2, id: 1 }],
+        });
+        await expect(ribbon).toHaveAttribute('data-dragging', 'true');
+        const current = await phase();
+        expect(current).toBeGreaterThan(previous + 0.025);
+        previous = current;
+        await page.waitForTimeout(16);
+      }
+      // Release immediately after the last move. Browser assertions between
+      // them would turn a fling into a stationary hold under test load.
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: point.x + 72, y: point.y + 12, id: 1 }],
+      });
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchEnd',
+        touchPoints: [],
+      });
+      await expect(ribbon).not.toHaveAttribute('data-dragging');
+      await expect(ribbon).toHaveAttribute('data-running', 'true');
+      await expect.poll(phase).toBeGreaterThan(previous);
+      expect(await page.evaluate(() => scrollY)).toBeCloseTo(initialScroll, 0);
+      await expect(page).toHaveURL(new RegExp(route + '$'));
+      await expect(ribbon).toHaveAttribute('data-tone', '0');
+    }
+  }
+});
+
 test('detalles táctiles: nombre, circuitos al detener scroll y tecnologías; zoom y cierre', async ({
   page,
 }) => {
@@ -237,6 +372,181 @@ test('recorridos con efectos: tarjeta contenida, avance, cierre y cinta activa',
       ),
     ).toBe(true);
   }
+});
+
+async function expectLandscapeFrame(page: Page) {
+  const geometry = await page.locator('.page-tour').evaluate((el) => {
+    const dialog = el as HTMLElement;
+    const card = dialog.querySelector<HTMLElement>('.tour-card')!;
+    const spot = dialog.querySelector<HTMLElement>('.tour-spotlight')!;
+    const next = dialog.querySelector<HTMLElement>('.tour-next')!;
+    const copy = dialog.querySelector<HTMLElement>('.tour-copy')!;
+    const root = document.querySelector<HTMLElement>(dialog.dataset.target!)!;
+    const focus = dialog.dataset.focus
+      ? root.querySelector<HTMLElement>(dialog.dataset.focus)!
+      : root;
+    const c = card.getBoundingClientRect(),
+      s = spot.getBoundingClientRect(),
+      n = next.getBoundingClientRect(),
+      f = focus.getBoundingClientRect();
+    const fits = (r: DOMRect) =>
+      r.left >= -1 &&
+      r.top >= -1 &&
+      r.right <= innerWidth + 1 &&
+      r.bottom <= innerHeight + 1;
+    return {
+      fits: fits(c) && fits(s) && fits(n),
+      complete:
+        s.left <= f.left + 1 &&
+        s.top <= f.top + 1 &&
+        s.right >= f.right - 1 &&
+        s.bottom >= f.bottom - 1,
+      separated: s.right + 16 <= c.left && c.bottom + 12 <= n.top + 1,
+      positions: { card: c.toJSON(), spot: s.toJSON(), next: n.toJSON() },
+      copyHeight: copy.clientHeight,
+      horizontal:
+        card.scrollWidth > card.clientWidth + 1 ||
+        copy.scrollWidth > copy.clientWidth + 1,
+      controls: [
+        ...dialog.querySelectorAll<HTMLElement>(
+          '.tour-close, .tour-play, .tour-previous, .tour-forward',
+        ),
+      ].every((button) => {
+        const r = button.getBoundingClientRect();
+        return fits(r) && r.top >= c.top && r.bottom <= c.bottom;
+      }),
+    };
+  });
+  expect(geometry.fits).toBe(true);
+  expect(geometry.complete).toBe(true);
+  expect(geometry.separated, JSON.stringify(geometry.positions)).toBe(true);
+  expect(geometry.controls).toBe(true);
+  expect(geometry.copyHeight).toBeGreaterThan(44);
+  expect(geometry.horizontal).toBe(false);
+}
+
+test('recorridos horizontales: todas las paradas encuadradas, mensajes y controles visibles', async ({
+  page,
+  browserName,
+}, testInfo) => {
+  test.skip(
+    browserName === 'webkit' && testInfo.project.name !== 'landscape-webkit',
+    'Horizontal WebKit profile covers this layout.',
+  );
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 832, height: 378 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const projects = routes.filter((route) => route.startsWith('/proyectos/'));
+  for (const route of [
+    '/',
+    ...projects,
+    '/en/',
+    ...projects.map((route) => route.replace('/proyectos/', '/en/projects/')),
+  ]) {
+    await page.goto(route);
+    await page.evaluate(() => document.fonts.ready);
+    const original = await page
+      .locator('.case-image .image-stage')
+      .evaluateAll((nodes) =>
+        nodes.map((node) => ({
+          width: (node as HTMLElement).offsetWidth,
+          height: (node as HTMLElement).offsetHeight,
+        })),
+      );
+    await page.locator('[data-tour-start]').tap();
+    const tour = page.locator('.page-tour');
+    await tour.locator('.tour-play').tap();
+    await expect(tour).toHaveAttribute('data-layout', 'landscape');
+    const stops = await tour.evaluate(
+      (el) => JSON.parse((el as HTMLElement).dataset.stops!).length as number,
+    );
+    const initialNext = await tour.locator('.tour-next').boundingBox();
+    for (let i = 0; i < stops; i++) {
+      if (i)
+        await tour
+          .locator('.tour-forward')
+          .evaluate((button) => (button as HTMLButtonElement).click());
+      await page.evaluate(() => new Promise(requestAnimationFrame));
+      await expectLandscapeFrame(page);
+      expect(await tour.locator('.tour-next').boundingBox()).toEqual(
+        initialNext,
+      );
+    }
+    await tour.locator('.tour-close').tap();
+    await expect(tour).not.toBeVisible();
+    await expect(
+      page.locator(
+        '.tour-focus-landscape, .tour-focus-image, .tour-focus-window, .tour-scroll-space',
+      ),
+    ).toHaveCount(0);
+    expect(
+      await page.locator('.case-image .image-stage').evaluateAll((nodes) =>
+        nodes.map((node) => ({
+          width: (node as HTMLElement).offsetWidth,
+          height: (node as HTMLElement).offsetHeight,
+        })),
+      ),
+    ).toEqual(original);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('recorrido horizontal animado: rotación y altura variable sin recortes ni errores', async ({
+  page,
+  browserName,
+}, testInfo) => {
+  test.skip(
+    browserName === 'webkit' && testInfo.project.name !== 'landscape-webkit',
+    'Horizontal WebKit profile covers rotation.',
+  );
+  await page.clock.install();
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  for (const route of ['/', '/proyectos/oax-demo/']) {
+    await page.setViewportSize({ width: 428, height: 926 });
+    await page.goto(route);
+    await page.locator('[data-tour-start]').tap();
+    const tour = page.locator('.page-tour');
+    await tour.locator('.tour-play').tap();
+    await page.clock.runFor(1000);
+    for (let i = 0; i < (route === '/' ? 1 : 6); i++) {
+      await tour
+        .locator('.tour-forward')
+        .evaluate((button) => (button as HTMLButtonElement).click());
+      await page.clock.runFor(1000);
+    }
+    const target = await tour.getAttribute('data-target');
+    for (const viewport of [
+      { width: 832, height: 378 },
+      { width: 926, height: 320 },
+      { width: 568, height: 320 },
+    ]) {
+      if (route === '/') await tour.locator('.tour-follow').focus();
+      await page.setViewportSize(viewport);
+      // Native resize events can arrive after the viewport promise in WebKit.
+      // Advance animation time as the browser delivers the layout callbacks.
+      await expect(async () => {
+        await page.clock.runFor(100);
+        await expect(tour).toHaveAttribute('data-layout', 'landscape');
+        await expect(tour).toHaveAttribute('data-playing', 'false');
+        await expect(tour).toHaveAttribute('data-target', target!);
+        await expectLandscapeFrame(page);
+        if (route === '/')
+          await expect(tour.locator('.tour-follow')).toBeFocused();
+      }).toPass({ timeout: 5000, intervals: [50, 100, 250] });
+    }
+    await page.setViewportSize({ width: 428, height: 926 });
+    await expect(async () => {
+      await page.clock.runFor(100);
+      await expect(tour).toHaveAttribute('data-layout', 'default');
+      await expect(page.locator('.tour-focus-landscape')).toHaveCount(0);
+    }).toPass({ timeout: 5000 });
+    await tour.locator('.tour-close').tap();
+    await expect(page.locator('.tour-scroll-space')).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
 });
 
 test('gestos reales: agarre sin scroll, inercia, scroll exterior y pellizco de galería', async ({
