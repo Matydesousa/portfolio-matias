@@ -297,7 +297,7 @@ test('figura táctil: espacio propio, ensamblado, cambio de aspecto y pausa', as
   const handle = page.locator('.scene-handle');
   await expect(handle).toBeVisible();
   const anchor = await handle.boundingBox();
-  const content = await page.locator('.intro > .tour-trigger').boundingBox();
+  const content = await page.locator('.intro-actions').boundingBox();
   expect(anchor!.y).toBeGreaterThanOrEqual(content!.y + content!.height);
   expect(anchor!.x).toBeGreaterThanOrEqual(0);
   expect(anchor!.x + anchor!.width).toBeLessThanOrEqual(

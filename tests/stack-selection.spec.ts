@@ -14,7 +14,11 @@ for (const [route, experienceLabel] of [
     await expect(stack).not.toBeVisible();
     await page.getByText(experienceLabel, { exact: true }).click();
     await expect(stack).toBeVisible();
-    await expect(stack.locator('.stack-group')).toHaveCount(3);
+    await expect(stack.locator('.stack-group')).toHaveCount(4);
+    const development = stack.locator('[data-stack-group="development"]');
+    expect(
+      await development.locator('[data-tech-label]').allTextContents(),
+    ).toEqual(['React', 'Inertia']);
     expect(await details.textContent()).not.toMatch(/adminanzas|mariadb/i);
     const selected = stack.locator('[data-selected="true"]');
     const tools = stack.locator('[data-stack-group="tools"]');
@@ -30,10 +34,12 @@ for (const [route, experienceLabel] of [
     await page.keyboard.press('Space');
     await expect(selected).toHaveAttribute('data-stack-group', 'projects');
     await expect(stack.locator('[aria-pressed="true"]')).toHaveCount(1);
+    await development.locator('[data-stack-select]').click();
+    await expect(selected).toHaveAttribute('data-stack-group', 'development');
     await page.getByText(experienceLabel, { exact: true }).click();
     await expect(stack).not.toBeVisible();
     await page.getByText(experienceLabel, { exact: true }).click();
-    await expect(selected).toHaveAttribute('data-stack-group', 'projects');
+    await expect(selected).toHaveAttribute('data-stack-group', 'development');
     await stack
       .locator('[data-stack-group="primary"] [data-stack-select]')
       .focus();
@@ -43,7 +49,7 @@ for (const [route, experienceLabel] of [
       await stack
         .locator('[data-stack-group="primary"] [data-tech-label]')
         .allTextContents(),
-    ).toEqual(['PHP', 'Laravel', 'MySQL']);
+    ).toEqual(['PHP', 'Laravel', 'MySQL', 'Blade']);
   });
 }
 
@@ -129,7 +135,7 @@ test('recorrido abre experiencia, conserva grupo elegido y restaura el desplegab
   const details = page.locator('#sobre-mi details');
   await details.locator('summary').click();
   await details
-    .locator('[data-stack-group="tools"] [data-stack-select]')
+    .locator('[data-stack-group="development"] [data-stack-select]')
     .click();
   await details.locator('summary').click();
   await page.locator('[data-tour-start]').click();
@@ -145,14 +151,14 @@ test('recorrido abre experiencia, conserva grupo elegido y restaura el desplegab
   await expect(tour).toHaveAttribute('data-focus', '[data-selected="true"]');
   await expect(details.locator('[data-selected="true"]')).toHaveAttribute(
     'data-stack-group',
-    'tools',
+    'development',
   );
   await tour.locator('.tour-close').click();
   await expect(details).not.toHaveAttribute('open');
   await details.locator('summary').click();
   await expect(details.locator('[data-selected="true"]')).toHaveAttribute(
     'data-stack-group',
-    'tools',
+    'development',
   );
 });
 
@@ -171,7 +177,7 @@ test('sin JavaScript: desplegable nativo, títulos legibles y controles ocultos'
       await expect(details.locator('[data-stack-select]:visible')).toHaveCount(
         0,
       );
-      await expect(details.locator('[data-stack-hint]')).toBeHidden();
+      await expect(details.locator('[data-stack-hint]')).toHaveCount(0);
       await page.close();
     }
   } finally {
