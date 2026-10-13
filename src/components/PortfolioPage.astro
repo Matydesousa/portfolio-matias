@@ -33,12 +33,6 @@ const stackGroups = [
     description: t.stackProjectsText,
     items: technologyStack.projects,
   },
-  {
-    key: 'development',
-    title: t.stackDevelopment,
-    description: t.stackDevelopmentText,
-    items: technologyStack.development,
-  },
 ];
 ---
 
@@ -146,34 +140,6 @@ const stackGroups = [
     <section class="about" id="sobre-mi" aria-labelledby="about-title">
       <h2 id="about-title">{t.about}</h2>
       <p>{t.aboutText}</p>
-      <section class="about-stack" aria-labelledby="stack-title">
-        <h3 id="stack-title">{t.stackTitle}</h3>
-        <dl class="stack-groups">
-          {stackGroups.map((group) => (
-            <div class="stack-group" data-stack-group={group.key}>
-              <dt>{group.title}</dt>
-              <dd>
-                <p>{group.description}</p>
-                <ul class="tags stack-tags" aria-label={group.title}>
-                  {group.items.map((technology) => (
-                    <li>
-                      <span data-tech-label>{technology}</span>
-                      <button
-                        class="tech-spark"
-                        type="button"
-                        aria-label={`${t.animateTechnology} ${technology}`}
-                        hidden
-                      >
-                        {technology}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
       <details>
         <summary>{t.experience}</summary>
         <div class="experience-list">
@@ -186,10 +152,54 @@ const stackGroups = [
             </div>
           ))}
         </div>
+        <section class="about-stack" aria-labelledby="stack-title">
+          <h3 id="stack-title">{t.stackTitle}</h3>
+          <p class="stack-hint" data-stack-hint hidden>
+            {t.stackHint}
+          </p>
+          <dl class="stack-groups">
+            {stackGroups.map((group) => (
+              <div
+                class="stack-group"
+                data-stack-group={group.key}
+                data-selected={group.key === 'primary' ? 'true' : undefined}
+              >
+                <dt>
+                  <span data-stack-title>{group.title}</span>
+                  <button
+                    class="stack-select"
+                    type="button"
+                    data-stack-select
+                    aria-label={`${t.highlightStack} ${group.title}`}
+                    aria-pressed={group.key === 'primary' ? 'true' : 'false'}
+                    hidden
+                  >
+                    {group.title}
+                  </button>
+                </dt>
+                <dd>
+                  <p>{group.description}</p>
+                  <ul class="tags stack-tags" aria-label={group.title}>
+                    {group.items.map((technology) => (
+                      <li>
+                        <span data-tech-label>{technology}</span>
+                        <button
+                          class="tech-spark"
+                          type="button"
+                          aria-label={`${t.animateTechnology} ${technology}`}
+                          hidden
+                        >
+                          {technology}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       </details>
-      <p class="development">
-        <strong>{t.development}</strong> {t.developmentText}
-      </p>
     </section>
     <section class="contact" id="contacto" aria-labelledby="contact-title">
       <div>
@@ -211,3 +221,8 @@ const stackGroups = [
     </section>
   </main>
 </Layout>
+
+<script>
+  import { initializeStackSelection } from '../scripts/stack-selection';
+  initializeStackSelection();
+</script>

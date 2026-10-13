@@ -15,7 +15,6 @@ export const technologyStack = {
   primary: ['PHP', 'Laravel', 'MySQL'],
   tools: ['Git', 'GitHub', 'Composer', 'npm'],
   projects: ['HTML', 'CSS', 'JavaScript', 'Blade', 'Java', 'Python', 'C'],
-  development: ['React', 'Inertia'],
 };
 
 export const experience = [

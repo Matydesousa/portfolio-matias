@@ -28,20 +28,15 @@ export function getPortfolioTour(locale: Locale = 'es'): TourStop[] {
       message: t.tourAboutText,
     },
     {
-      target: '.about-stack',
-      focus: '[data-stack-group="primary"]',
-      title: t.stackTitle,
-      message: t.tourStackText,
-    },
-    {
       target: '.experience-list',
       title: t.experience,
       message: t.tourExperience,
     },
     {
-      target: '.development',
-      title: t.tourDevelopment,
-      message: t.tourDevelopmentText,
+      target: '.about-stack',
+      focus: '[data-selected="true"]',
+      title: t.stackTitle,
+      message: t.tourStackText,
     },
     {
       target: '#contacto',

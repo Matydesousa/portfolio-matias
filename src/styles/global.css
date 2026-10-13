@@ -753,6 +753,11 @@ h2 {
   font-size: 1rem;
   letter-spacing: -0.02em;
 }
+.stack-hint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
 .stack-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -760,11 +765,42 @@ h2 {
   margin-top: 14px;
 }
 .stack-group {
+  position: relative;
   min-width: 0;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #17253f33;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+.stack-group:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.stack-select {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.stack-select::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 12px;
+}
+.stack-select:focus-visible {
+  outline: none;
+}
+.stack-select:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .stack-group dt {
   font-size: 0.875rem;
@@ -780,17 +816,25 @@ h2 {
   margin-top: 6px;
 }
 .stack-group .stack-tags {
+  position: relative;
+  z-index: 2;
   margin-block: 14px 0;
 }
-.stack-group[data-stack-group='primary'] {
+.stack-group[data-selected='true'] {
   border-color: #557ba1;
   background: linear-gradient(135deg, #23406455, #17253f33);
+  box-shadow: inset 0 0 18px #8bb9ff08;
 }
-.stack-group[data-stack-group='primary'] .stack-tags li {
+.stack-group[data-selected='true'] .stack-tags li {
   color: #d8e7ff;
   border-color: #6388b0;
+}
+.stack-group[data-stack-group='primary'] .stack-tags li {
   font-size: 1rem;
   font-weight: 600;
+}
+html[data-motion='off'] .stack-group {
+  transition: none;
 }
 @media (max-width: 700px) {
   .stack-groups {
@@ -839,14 +883,6 @@ summary {
   color: var(--muted);
   max-width: 700px;
   margin-top: 4px;
-}
-.about .development {
-  margin-top: 24px;
-  font-size: 0.875rem;
-}
-.development strong {
-  color: #c3d2e9;
-  font-weight: 550;
 }
 .contact {
   padding-block: 36px 12px;

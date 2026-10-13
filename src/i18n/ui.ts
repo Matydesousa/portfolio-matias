@@ -48,13 +48,10 @@ export const ui = {
     stackToolsText: 'Control de versiones y gestión de dependencias.',
     stackProjects: 'Proyectos web y académicos',
     stackProjectsText: 'Tecnologías aplicadas en mis proyectos públicos.',
-    stackDevelopment: 'En desarrollo',
-    stackDevelopmentText: 'Tecnologías que aplico en Adminanzas.',
+    stackHint: 'Elegí un grupo para destacarlo.',
+    highlightStack: 'Destacar',
     tourStackText:
-      'Mi experiencia principal está en PHP, Laravel y MySQL. Acá separo ese stack de las herramientas, las tecnologías de otros proyectos y las que aplico en Adminanzas.',
-    development: 'En desarrollo: Adminanzas.',
-    developmentText:
-      'Mi proyecto personal de administración financiera colaborativa con Laravel, Inertia y React.',
+      'Estos grupos separan mi experiencia principal, las herramientas y las tecnologías de otros proyectos. Podés elegir cuál destacar con un clic o toque.',
     contactText: '¿Un proyecto o una oportunidad? Podés escribirme.',
     contactByEmail: 'Contactarme por email',
     copyEmail: 'Copiar correo',
@@ -121,9 +118,6 @@ export const ui = {
       'Acá resumo mi experiencia como técnico informático y mi participación en OAX Sistemas.',
     tourExperience:
       'Esta sección se despliega para mostrar mi trabajo y mis estudios de Ingeniería Informática en UADE.',
-    tourDevelopment: 'Lo que estoy construyendo',
-    tourDevelopmentText:
-      'Adminanzas es mi proyecto personal en desarrollo. Su código permanece privado.',
     tourContact: 'Sigamos en contacto',
     tourContactText:
       'Estos enlaces te llevan a mi correo, LinkedIn y GitHub. Podés escribirme por proyectos freelance u oportunidades remotas.',
@@ -199,13 +193,10 @@ export const ui = {
     stackToolsText: 'Version control and dependency management.',
     stackProjects: 'Web and academic projects',
     stackProjectsText: 'Technologies used in my public projects.',
-    stackDevelopment: 'In development',
-    stackDevelopmentText: 'Technologies I use in Adminanzas.',
+    stackHint: 'Choose a group to highlight.',
+    highlightStack: 'Highlight',
     tourStackText:
-      'My main experience is with PHP, Laravel and MySQL. This section separates that stack from tools, technologies used in other projects and those I use in Adminanzas.',
-    development: 'In development: Adminanzas.',
-    developmentText:
-      'My personal project for collaborative financial management, built with Laravel, Inertia and React.',
+      'These groups separate my main experience, tools and technologies used in other projects. Click or tap a group to highlight it.',
     contactText: 'A project or an opportunity? Feel free to get in touch.',
     contactByEmail: 'Contact me by email',
     copyEmail: 'Copy email',
@@ -273,9 +264,6 @@ export const ui = {
       'Here I describe my experience as an IT technician and my contribution to OAX Sistemas.',
     tourExperience:
       'This section expands to show my work and my Computer Engineering studies at UADE.',
-    tourDevelopment: 'What I’m building',
-    tourDevelopmentText:
-      'Adminanzas is my personal project in development. Its source code remains private.',
     tourContact: 'Let’s get in touch',
     tourContactText:
       'These links lead to my email, LinkedIn and GitHub. You can contact me about freelance projects or remote opportunities.',
