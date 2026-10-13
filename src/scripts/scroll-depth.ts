@@ -3,7 +3,7 @@ export function initializeScrollDepth() {
   const root = document.documentElement;
   const elements = Array.from(
     document.querySelectorAll<HTMLElement>(
-      '.intro > p, .intro > h1, .intro > button, .back-link, .case-header > p, .case-header > h1, .case-header > .tags, .case-actions, .list-heading, .repository-list > li, .about > h2, .about > p, .about-stack > h3, .stack-groups > div, .about > details > summary, .experience-list, .contact > div, .case-image, .case-body > h2, .case-body > p, .gallery-heading, .project-features > div, .workflow-list > li, .project-example, .gallery-grid > li, .decision-list > li, .project-ribbon, .site-footer',
+      '.intro > p, .intro > h1, .intro-actions, .back-link, .case-header > p, .case-header > h1, .case-header > .tags, .case-actions, .list-heading, .repository-list > li, .about > h2, .about > p, .about-stack > h3, .stack-groups > div, .about > details > summary, .experience-list, .contact > div, .case-image, .case-body > h2, .case-body > p, .gallery-heading, .project-features > div, .workflow-list > li, .project-example, .gallery-grid > li, .decision-list > li, .project-ribbon, .site-footer',
     ),
   );
   const targets = new Map<

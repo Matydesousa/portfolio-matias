@@ -90,7 +90,7 @@ export function createPageArrival(canvas: HTMLCanvasElement) {
       if (document.hidden) return;
       const elements = Array.from(
         document.querySelectorAll<HTMLElement>(
-          '.intro-description, .availability, .intro > .tour-trigger, .list-heading, .repository-list > li:first-child, .case-summary, .case-header > .tags, .case-actions, .not-found > p, .not-found > h1, .not-found > a',
+          '.intro-description, .availability, .intro-actions, .list-heading, .repository-list > li:first-child, .case-summary, .case-header > .tags, .case-actions, .not-found > p, .not-found > h1, .not-found > a',
         ),
       ).filter((element) => {
         const bounds = element.getBoundingClientRect();

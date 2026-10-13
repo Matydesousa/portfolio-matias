@@ -243,9 +243,9 @@ html[data-scene-dragging='true'] * {
 }
 .case-actions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 .tour-trigger {
   display: inline-flex;
@@ -259,17 +259,39 @@ html[data-scene-dragging='true'] * {
   border: 0;
   cursor: pointer;
 }
-.intro .tour-trigger {
-  margin-top: 14px;
-}
-.intro-email-cta {
+.intro-actions {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 18px;
-  margin-right: 16px;
-  vertical-align: middle;
 }
-.email-cta:hover,
-.contact-links .email-cta:hover {
+.intro-actions > .button,
+.case-actions .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.4;
+  text-align: center;
+  touch-action: manipulation;
+}
+.tour-trigger.button span {
+  width: 20px;
+  height: 20px;
+  border: 0;
+}
+.email-cta[role='button'] {
+  touch-action: manipulation;
+}
+.email-cta:hover {
   text-decoration: none;
+  color: var(--background);
 }
 .tour-trigger[hidden] {
   display: none;
@@ -1060,7 +1082,7 @@ summary {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 .button-secondary {
   background: #8ab7f00d;
@@ -1069,6 +1091,89 @@ summary {
 }
 .button-secondary:hover {
   background: #8ab7f025;
+}
+.email-options {
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  color: var(--text);
+  background: linear-gradient(145deg, #172b45fa, #0e1b30fc);
+  border: 1px solid #91b6e245;
+  border-radius: 16px;
+  box-shadow: 0 20px 80px #02081780;
+  overflow-y: auto;
+}
+.email-options::backdrop {
+  background: #030a17bd;
+}
+html:has(.email-options[open]) {
+  overflow: hidden;
+}
+.email-options-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.email-options-heading h2 {
+  font-size: 1rem;
+}
+.email-options-close {
+  width: 44px;
+  height: 44px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.25rem;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.email-options-close:hover {
+  color: var(--text);
+  background: #8ab7f01f;
+}
+.email-options-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.email-options > p {
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.email-options > .email-options-address {
+  margin-top: 4px;
+  color: var(--text);
+}
+.email-options-links {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.email-options-links a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #8ab7f008;
+}
+.email-options-links a:hover {
+  background: #8ab7f01f;
+}
+@media (max-width: 500px) {
+  .intro-actions > .button,
+  .case-actions > .button,
+  .case-actions > .project-live-links,
+  .project-live-links > .button {
+    flex: 1 1 220px;
+  }
 }
 .project-demo-link {
   font-size: 0.8125rem;

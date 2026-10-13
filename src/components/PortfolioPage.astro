@@ -7,6 +7,7 @@ import { getUI, projectPath, type Locale } from '../i18n/ui';
 import { getPortfolioTour } from '../data/walkthroughs';
 import SculptureControl from './SculptureControl.astro';
 import EmailCopy from './EmailCopy.astro';
+import EmailContactOptions from './EmailContactOptions.astro';
 interface Props {
   locale?: Locale;
 }
@@ -75,25 +76,28 @@ const stackGroups = [
       </h1>
       <p class="intro-description">{t.intro}</p>
       <p class="availability">{t.availability}</p>
-      <a
-        class="button email-cta intro-email-cta"
-        href={`mailto:${profile.email}`}
-      >
-        {t.contactByEmail}
-      </a>
-      <button
-        class="tour-trigger"
-        data-tour-start
-        type="button"
-        aria-haspopup="dialog"
-        aria-controls="page-tour"
-        hidden
-      >
-        {t.tourPortfolio}{' '}
-        <span aria-hidden="true">
-          <ArrowUpRight />
-        </span>
-      </button>
+      <div class="intro-actions">
+        <a
+          class="button email-cta"
+          href={`mailto:${profile.email}`}
+          data-email-contact
+        >
+          {t.contactByEmail}
+        </a>
+        <button
+          class="button button-secondary tour-trigger"
+          data-tour-start
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="page-tour"
+          hidden
+        >
+          {t.tourPortfolio}{' '}
+          <span aria-hidden="true">
+            <ArrowUpRight />
+          </span>
+        </button>
+      </div>
       <SculptureControl locale={locale} />
     </section>
     <section id="proyectos" class="projects" aria-labelledby="projects-title">
@@ -207,9 +211,6 @@ const stackGroups = [
         <p>{t.contactText}</p>
       </div>
       <div class="contact-links">
-        <a class="button email-cta" href={`mailto:${profile.email}`}>
-          {t.contactByEmail}
-        </a>
         <EmailCopy email={profile.email} locale={locale} />
         <a href={profile.linkedin} target="_blank" rel="noopener noreferrer">
           LinkedIn<span class="sr-only">{t.newTab}</span>
@@ -220,6 +221,7 @@ const stackGroups = [
       </div>
     </section>
   </main>
+  <EmailContactOptions email={profile.email} locale={locale} />
 </Layout>
 
 <script>

@@ -54,6 +54,9 @@ export const ui = {
       'Estos grupos separan mi experiencia principal, las herramientas y las tecnologías de otros proyectos. Podés elegir cuál destacar con un clic o toque.',
     contactText: '¿Un proyecto o una oportunidad? Podés escribirme.',
     contactByEmail: 'Contactarme por email',
+    emailOptionsText: 'Elegí dónde escribir tu mensaje.',
+    emailApp: 'Usar mi aplicación de correo',
+    closeEmailOptions: 'Cerrar opciones de correo',
     copyEmail: 'Copiar correo',
     copied: 'Correo copiado.',
     copyFailed:
@@ -199,6 +202,9 @@ export const ui = {
       'These groups separate my main experience, tools and technologies used in other projects. Click or tap a group to highlight it.',
     contactText: 'A project or an opportunity? Feel free to get in touch.',
     contactByEmail: 'Contact me by email',
+    emailOptionsText: 'Choose where to write your message.',
+    emailApp: 'Use my email app',
+    closeEmailOptions: 'Close email options',
     copyEmail: 'Copy email',
     copied: 'Email copied.',
     copyFailed:

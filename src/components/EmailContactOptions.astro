@@ -1,0 +1,109 @@
+---
+import ArrowUpRight from './ArrowUpRight.astro';
+import { getUI, type Locale } from '../i18n/ui';
+interface Props {
+  email: string;
+  locale?: Locale;
+}
+const { email, locale = 'es' } = Astro.props;
+const t = getUI(locale);
+const recipient = encodeURIComponent(email);
+---
+
+<dialog
+  class="email-options"
+  id="email-options"
+  aria-labelledby="email-options-title"
+  aria-describedby="email-options-description"
+>
+  <div class="email-options-heading">
+    <h2 id="email-options-title">{t.contactByEmail}</h2>
+    <form method="dialog">
+      <button
+        class="email-options-close"
+        aria-label={t.closeEmailOptions}
+        title={t.closeEmailOptions}
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+    </form>
+  </div>
+  <p id="email-options-description">{t.emailOptionsText}</p>
+  <p class="email-options-address">{email}</p>
+  <div class="email-options-links">
+    <a
+      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${recipient}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      tabindex="0"
+    >
+      <span>
+        Gmail<span class="sr-only">{t.newTab}</span>
+      </span>
+      <ArrowUpRight />
+    </a>
+    <a
+      href={`https://outlook.live.com/mail/0/deeplink/compose?to=${recipient}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      tabindex="0"
+    >
+      <span>
+        Outlook<span class="sr-only">{t.newTab}</span>
+      </span>
+      <ArrowUpRight />
+    </a>
+    <a href={`mailto:${email}`} tabindex="0">
+      {t.emailApp}
+    </a>
+  </div>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('.email-options');
+  if (dialog && typeof dialog.showModal === 'function') {
+    let opener: HTMLAnchorElement | null = null;
+    document
+      .querySelectorAll<HTMLAnchorElement>('[data-email-contact]')
+      .forEach((trigger) => {
+        trigger.setAttribute('role', 'button');
+        trigger.setAttribute('aria-haspopup', 'dialog');
+        trigger.setAttribute('aria-controls', dialog.id);
+        trigger.addEventListener('keydown', (event) => {
+          if (event.key !== ' ') return;
+          event.preventDefault();
+          if (!event.repeat) trigger.click();
+        });
+        trigger.addEventListener('click', (event) => {
+          if (
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            event.shiftKey ||
+            event.button !== 0
+          )
+            return;
+          event.preventDefault();
+          opener = trigger;
+          if (!dialog.open) dialog.showModal();
+          dialog
+            .querySelector<HTMLAnchorElement>('.email-options-links a')
+            ?.focus();
+        });
+      });
+    dialog.addEventListener('click', (event) => {
+      if (event.target !== dialog) return;
+      const bounds = dialog.getBoundingClientRect();
+      if (
+        event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom
+      )
+        dialog.close();
+    });
+    dialog.addEventListener('close', () =>
+      opener?.focus({ preventScroll: true }),
+    );
+  }
+</script>
