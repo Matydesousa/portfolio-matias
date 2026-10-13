@@ -17,9 +17,8 @@ test('English homepage, language switch, metadata and localized navigation', asy
     'Computer Engineering at UADE',
   );
   await expect(page.locator('.about')).toContainText('Argentine Army');
-  await expect(page.locator('.development')).toContainText(
-    'collaborative financial management',
-  );
+  await expect(page.locator('.about')).not.toContainText('Adminanzas');
+  await expect(page.locator('.about-stack')).not.toBeVisible();
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
     /Computer Engineering student/,
