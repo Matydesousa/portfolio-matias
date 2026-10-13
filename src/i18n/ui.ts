@@ -41,6 +41,17 @@ export const ui = {
     aboutText:
       'Soy técnico informático en el Ejército Argentino, con experiencia en desarrollo y mantenimiento de sistemas internos. Participo en OAX Sistemas, desarrollando soluciones para comercios y empresas.',
     experience: 'Experiencia y formación',
+    stackTitle: 'Stack y herramientas',
+    stackPrimary: 'Experiencia profesional',
+    stackPrimaryText: 'Mi foco en backend y sistemas de gestión.',
+    stackTools: 'Herramientas',
+    stackToolsText: 'Control de versiones y gestión de dependencias.',
+    stackProjects: 'Proyectos web y académicos',
+    stackProjectsText: 'Tecnologías aplicadas en mis proyectos públicos.',
+    stackDevelopment: 'En desarrollo',
+    stackDevelopmentText: 'Tecnologías que aplico en Adminanzas.',
+    tourStackText:
+      'Mi experiencia principal está en PHP, Laravel y MySQL. Acá separo ese stack de las herramientas, las tecnologías de otros proyectos y las que aplico en Adminanzas.',
     development: 'En desarrollo: Adminanzas.',
     developmentText:
       'Mi proyecto personal de administración financiera colaborativa con Laravel, Inertia y React.',
@@ -181,6 +192,17 @@ export const ui = {
     aboutText:
       'I work as an IT technician in the Argentine Army, with experience developing and maintaining internal systems. I contribute to OAX Sistemas, developing solutions for shops and businesses.',
     experience: 'Experience and education',
+    stackTitle: 'Stack and tools',
+    stackPrimary: 'Professional experience',
+    stackPrimaryText: 'My focus on backend development and management systems.',
+    stackTools: 'Tools',
+    stackToolsText: 'Version control and dependency management.',
+    stackProjects: 'Web and academic projects',
+    stackProjectsText: 'Technologies used in my public projects.',
+    stackDevelopment: 'In development',
+    stackDevelopmentText: 'Technologies I use in Adminanzas.',
+    tourStackText:
+      'My main experience is with PHP, Laravel and MySQL. This section separates that stack from tools, technologies used in other projects and those I use in Adminanzas.',
     development: 'In development: Adminanzas.',
     developmentText:
       'My personal project for collaborative financial management, built with Laravel, Inertia and React.',

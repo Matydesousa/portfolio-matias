@@ -528,7 +528,7 @@ test('visita guiada: desplaza la portada, resalta contenido y abre proyectos rea
     expect(geometry.targetTop).toBeLessThan(geometry.height);
     expect(geometry.spotBottom).toBeGreaterThan(geometry.targetTop);
     expect(geometry.spotTop).toBeLessThan(geometry.targetBottom);
-    if (index === 7)
+    if (stops[index].target === '.experience-list')
       await expect(page.locator('#sobre-mi details')).toHaveAttribute(
         'open',
         '',
