@@ -428,7 +428,9 @@ export function initializeProjectRibbon() {
     if (event.pointerId === drag?.id) finish(true);
   });
   viewport.addEventListener('lostpointercapture', (event) => {
-    if (event.pointerId === drag?.id) finish(true);
+    // Touch starts with implicit capture on the image/link. Its bubbling loss
+    // during transfer to the viewport is not a loss of our active grab.
+    if (event.target === viewport && event.pointerId === drag?.id) finish(true);
   });
   viewport.addEventListener('dragstart', (event) => event.preventDefault());
   viewport.addEventListener(

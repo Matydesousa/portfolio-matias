@@ -13,6 +13,8 @@ export function initializeMotion() {
   if (!canvas || !toggle) return;
 
   const root = document.documentElement;
+  const canvasParent = canvas.parentElement!;
+  const canvasNext = canvas.nextSibling;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
   const useWorker =
@@ -34,7 +36,7 @@ export function initializeMotion() {
   }
   function clearScene() {
     if (sceneWorker) sendScene({ type: 'clear' });
-    else context?.clearRect(0, 0, width, height);
+    else context?.clearRect(0, 0, drawingWidth, drawingHeight);
   }
   function startSceneWorker() {
     if (sceneWorker || workerFailed) return;
@@ -56,7 +58,12 @@ export function initializeMotion() {
       });
       const offscreen = canvas!.transferControlToOffscreen();
       sendScene({ type: 'init', canvas: offscreen }, [offscreen]);
-      sendScene({ type: 'resize', width, height, ratio });
+      sendScene({
+        type: 'resize',
+        width: drawingWidth,
+        height: drawingHeight,
+        ratio,
+      });
     } catch {
       workerFailed = true;
       sceneWorker?.terminate();
@@ -89,6 +96,10 @@ export function initializeMotion() {
   let lastFrame = 0;
   let width = 0;
   let height = 0;
+  let drawingWidth = 0;
+  let drawingHeight = 0;
+  let drawingRatio = 0;
+  let localScene = false;
   let scroll = 0;
   const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
   // Build only when a visible, enabled scene actually needs its first frame.
@@ -119,10 +130,51 @@ export function initializeMotion() {
   let suppressClick = false;
   let assemblyActivation = false;
   const scene = { x: 0, y: 0, scale: 100, opacity: 1 };
+  let anchorTop = 0;
+  let anchorBottom = 0;
   const sceneVisible = () =>
     Boolean(anchor) &&
-    scene.y > -scene.scale * 2 &&
-    scene.y < height + scene.scale * 2;
+    (localScene
+      ? !handle?.hidden && anchorBottom > 0 && anchorTop < height
+      : scene.y > -scene.scale * 2 && scene.y < height + scene.scale * 2);
+
+  function configureCanvas() {
+    // A local touch canvas scrolls with its hit area in the browser compositor,
+    // even while Safari is scrolling faster than JS/worker frames arrive.
+    const local = Boolean(anchor) && !finePointer.matches && width < 1100;
+    if (local !== localScene) {
+      localScene = local;
+      if (local) anchor!.prepend(canvas!);
+      else
+        canvasParent.insertBefore(
+          canvas!,
+          canvasNext?.parentNode === canvasParent ? canvasNext : null,
+        );
+    }
+    const nextWidth = local ? anchor!.clientWidth : width;
+    const nextHeight = local ? anchor!.clientHeight : height;
+    if (
+      nextWidth === drawingWidth &&
+      nextHeight === drawingHeight &&
+      drawingRatio === ratio
+    )
+      return;
+    drawingWidth = nextWidth;
+    drawingHeight = nextHeight;
+    drawingRatio = ratio;
+    if (sceneWorker)
+      sendScene({
+        type: 'resize',
+        width: drawingWidth,
+        height: drawingHeight,
+        ratio,
+      });
+    else if (!workerFailed) {
+      canvas!.width = Math.round(drawingWidth * ratio);
+      canvas!.height = Math.round(drawingHeight * ratio);
+      context?.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+  }
 
   function updateProgress() {
     const total = root.scrollHeight - innerHeight;
@@ -137,13 +189,17 @@ export function initializeMotion() {
     atmosphere?.style.setProperty('--ambient-shift', `${parallax}px`);
     if (anchor) {
       const bounds = anchor.getBoundingClientRect();
-      scene.x = bounds.left + bounds.width / 2;
-      scene.y = bounds.top + bounds.height / 2 + parallax * 0.6;
+      anchorTop = bounds.top;
+      anchorBottom = bounds.bottom;
+      scene.x = localScene ? drawingWidth / 2 : bounds.left + bounds.width / 2;
+      scene.y = localScene
+        ? drawingHeight / 2
+        : bounds.top + bounds.height / 2 + parallax * 0.6;
       // Keep the visible touch object inside its hit area, including when rotated.
       // Otherwise grabbing its overhanging top/bottom starts a page gesture.
       scene.scale =
         !handle?.hidden && !finePointer.matches
-          ? Math.min(bounds.width, bounds.height) * 0.27
+          ? Math.min(drawingWidth, drawingHeight) * 0.27
           : bounds.width * 0.37;
       scene.opacity =
         !handle?.hidden && !finePointer.matches
@@ -179,15 +235,10 @@ export function initializeMotion() {
     width = innerWidth;
     height = innerHeight;
     ratio = Math.min(devicePixelRatio || 1, 1.5);
-    if (sceneWorker) sendScene({ type: 'resize', width, height, ratio });
-    else if (!workerFailed) {
-      canvas!.width = Math.round(width * ratio);
-      canvas!.height = Math.round(height * ratio);
-      context?.setTransform(ratio, 0, 0, ratio, 0, 0);
-    }
+    configureHandle();
+    configureCanvas();
     updateNavigationClearance();
     updateProgress();
-    configureHandle();
   }
 
   function endDrag() {
@@ -397,7 +448,7 @@ export function initializeMotion() {
         return;
       }
       const ctx = context!;
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, drawingWidth, drawingHeight);
       if (!drawSculpture || compactScene !== compact) {
         drawSculpture = createSculpture({ compact });
         compactScene = compact;
@@ -496,6 +547,7 @@ export function initializeMotion() {
     root.dataset.motion = enabled ? 'on' : 'off';
     scrollDepth.configure(enabled);
     configureHandle();
+    configureCanvas();
     if (atmosphere) atmosphere.hidden = !enabled;
     if (atmosphere) atmosphere.dataset.suspended = String(document.hidden);
     toggle!.hidden = false;
@@ -596,6 +648,7 @@ export function initializeMotion() {
   reducedMotion.addEventListener('change', configure);
   finePointer.addEventListener('change', () => {
     configureHandle();
+    configureCanvas();
     resets.forEach((reset) => reset());
     resetAtmosphere();
     updateProgress();
@@ -614,6 +667,8 @@ export function initializeMotion() {
     new ResizeObserver(() => {
       updateNavigationClearance();
       configureHandle();
+      configureCanvas();
+      updateProgress();
     }).observe(header);
   resize();
   configure();
