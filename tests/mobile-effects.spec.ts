@@ -367,6 +367,174 @@ test('cinta táctil: arrastre continuo desde miniatura, título y tarjeta sin ca
   }
 });
 
+async function recordTapPulses(page: Page) {
+  await page.addInitScript(() => {
+    const state = window as unknown as {
+      tapPulses: number;
+      copiedEmail: string;
+    };
+    state.tapPulses = 0;
+    const original = Element.prototype.animate;
+    Element.prototype.animate = function (
+      ...args: Parameters<Element['animate']>
+    ) {
+      if (this.classList.contains('ambient-pulse')) state.tapPulses++;
+      return original.apply(this, args);
+    };
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          state.copiedEmail = value;
+        },
+      },
+    });
+  });
+}
+const pulseCount = (page: Page) =>
+  page.evaluate(() => (window as unknown as { tapPulses: number }).tapPulses);
+
+test('toques: pulso de clic, doble toque, contacto y limpieza sin perder acciones', async ({
+  page,
+}) => {
+  await recordTapPulses(page);
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.goto('/');
+  await page.clock.runFor(1500);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const point = { x: 8, y: Math.min(240, page.viewportSize()!.height - 30) };
+  await expect(async () => {
+    await page.clock.runFor(100);
+    expect(await page.locator('.brand-signature').count()).toBe(1);
+  }).toPass({ timeout: 5000 });
+  expect(
+    await page
+      .locator('.ambient-pulse')
+      .evaluate((el) => getComputedStyle(el).display),
+  ).not.toBe('none');
+  await page.touchscreen.tap(point.x, point.y);
+  expect(await pulseCount(page)).toBe(1);
+  await expect(page.locator('.discovery-constellation')).toHaveCount(0);
+  await page.clock.runFor(160);
+  await page.touchscreen.tap(point.x, point.y);
+  expect(await pulseCount(page)).toBe(2);
+  await expect(page.locator('.discovery-constellation')).toHaveCount(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.clock.runFor(700);
+  const email = page.locator('[data-copy-email]');
+  await email.scrollIntoViewIfNeeded();
+  await page.clock.runFor(1000);
+  const box = await email.boundingBox();
+  await email.tap();
+  await page.clock.runFor(50);
+  await expect(email).toHaveAttribute('data-touch');
+  await expect(email.locator('.contact-signal')).toHaveCount(1);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { copiedEmail: string }).copiedEmail,
+    ),
+  ).toBe('matydesousa06@gmail.com');
+  await expect(page.locator('.email-copy-status')).toContainText(
+    'Correo copiado',
+  );
+  expect(await email.boundingBox()).toEqual(box);
+  await page.clock.runFor(500);
+  await expect(email).not.toHaveAttribute('data-touch');
+  await page.locator('.motion-toggle').tap();
+  await expect(page.locator('[data-touch]')).toHaveCount(0);
+  await expect(
+    page.locator('.contact-signal, .discovery-constellation'),
+  ).toHaveCount(0);
+  const paused = await pulseCount(page);
+  await page.touchscreen.tap(point.x, point.y);
+  expect(await pulseCount(page)).toBe(paused);
+  expect(
+    await page
+      .locator('.ambient-pulse')
+      .evaluate((el) => el.getAnimations().length),
+  ).toBe(0);
+  await page.locator('.motion-toggle').tap();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'off');
+  const reduced = await pulseCount(page);
+  await page.touchscreen.tap(point.x, point.y);
+  expect(await pulseCount(page)).toBe(reduced);
+  expect(errors).toEqual([]);
+});
+
+test('gestos nativos: arrastrar, sostener y pellizcar no disparan clics ni doble toque', async ({
+  page,
+  context,
+  browserName,
+}) => {
+  test.skip(browserName !== 'chromium', 'Native multi-touch requires CDP.');
+  await recordTapPulses(page);
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.goto('/');
+  await page.clock.runFor(1500);
+  const session = await context.newCDPSession(page);
+  const x = 8,
+    y = 240;
+  const touch = (x: number, y: number, id = 1) => ({ x, y, id });
+  const send = (
+    type: string,
+    touchPoints: { x: number; y: number; id: number }[],
+  ) =>
+    session.send('Input.dispatchTouchEvent', {
+      type: type as 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
+      touchPoints,
+    });
+  try {
+    await page.touchscreen.tap(x, y);
+    const count = await pulseCount(page);
+    await page.clock.runFor(150);
+    await send('touchStart', [touch(x, y)]);
+    await page.clock.runFor(40);
+    await send('touchMove', [touch(x, y + 45)]);
+    await page.clock.runFor(40);
+    await send('touchMove', [touch(x, y)]);
+    await send('touchEnd', []);
+    expect(await pulseCount(page)).toBe(count);
+    await expect(page.locator('.discovery-constellation')).toHaveCount(0);
+    await page.clock.runFor(500);
+    await send('touchStart', [touch(x, y)]);
+    await page.clock.runFor(650);
+    await send('touchEnd', []);
+    expect(await pulseCount(page)).toBe(count);
+    await expect(page.locator('.discovery-constellation')).toHaveCount(0);
+    await page.clock.runFor(500);
+    await send('touchStart', [touch(x, y)]);
+    await send('touchCancel', []);
+    await page.touchscreen.tap(x, y);
+    await expect(page.locator('.discovery-constellation')).toHaveCount(0);
+    const beforePinch = await pulseCount(page);
+    const scale = await page.evaluate(() => visualViewport!.scale);
+    await send('touchStart', [touch(130, 330, 2), touch(200, 330, 3)]);
+    for (let step = 1; step <= 5; step++) {
+      await page.clock.runFor(30);
+      await send('touchMove', [
+        touch(130 - step * 12, 330, 2),
+        touch(200 + step * 12, 330, 3),
+      ]);
+    }
+    await send('touchEnd', []);
+    expect(await pulseCount(page)).toBe(beforePinch);
+    await expect(page.locator('.discovery-constellation')).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => visualViewport!.scale))
+      .toBeGreaterThan(scale);
+  } finally {
+    await session.detach();
+  }
+});
+
 test('detalles táctiles: nombre, circuitos al detener scroll y tecnologías; zoom y cierre', async ({
   page,
 }) => {

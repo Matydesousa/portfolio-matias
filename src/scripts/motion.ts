@@ -4,6 +4,7 @@ import { getUI, documentLocale } from '../i18n/ui';
 import { initializeScrollDepth } from './scroll-depth';
 import { createPageArrival } from './page-arrival';
 import type { SceneWorkerMessage } from './scene-worker';
+import { observeTouchTaps } from './touch-taps';
 
 /** Progressive enhancement: all content and links work without this module. */
 export function initializeMotion() {
@@ -473,12 +474,18 @@ export function initializeMotion() {
     '.repository-link, .image-stage, .tour-trigger, .button, .contact-links a, .site-header nav a',
   );
   const resets: (() => void)[] = [];
+  const touchReactions = new Map<HTMLElement, (event: PointerEvent) => void>();
   rows.forEach((row) => {
     let rectangle: DOMRect;
     let rowFrame = 0;
     let x = 0,
       y = 0;
+    let touchStart: { x: number; y: number } | undefined;
+    let touchTimer: ReturnType<typeof setTimeout> | undefined;
     const reset = () => {
+      clearTimeout(touchTimer);
+      touchTimer = undefined;
+      touchStart = undefined;
       cancelAnimationFrame(rowFrame);
       rowFrame = 0;
       row.style.removeProperty('--rotate-x');
@@ -488,11 +495,33 @@ export function initializeMotion() {
       row.removeAttribute('data-pointer');
       row.removeAttribute('data-touch');
     };
+    const touchFeedback = (event: PointerEvent) => {
+      const bounds = row.getBoundingClientRect();
+      row.style.setProperty('--spot-x', `${event.clientX - bounds.left}px`);
+      row.style.setProperty('--spot-y', `${event.clientY - bounds.top}px`);
+      row.dataset.touch = '';
+    };
+    touchReactions.set(row, (event) => {
+      reset();
+      touchFeedback(event);
+      touchTimer = setTimeout(reset, 450);
+    });
     resets.push(reset);
     row.addEventListener('pointerenter', () => {
       rectangle = row.getBoundingClientRect();
     });
     row.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch') {
+        if (
+          touchStart &&
+          Math.hypot(
+            event.clientX - touchStart.x,
+            event.clientY - touchStart.y,
+          ) > 8
+        )
+          reset();
+        return;
+      }
       if (!enabled || !finePointer.matches || event.pointerType === 'touch')
         return;
       rectangle ??= row.getBoundingClientRect();
@@ -523,22 +552,73 @@ export function initializeMotion() {
         );
       });
     });
-    row.addEventListener('pointerleave', reset);
+    row.addEventListener('pointerleave', (event) => {
+      if (event.pointerType !== 'touch') reset();
+    });
     row.addEventListener(
       'pointerdown',
       (event) => {
-        if (!enabled || event.pointerType !== 'touch' || !event.isPrimary)
+        if (
+          !enabled ||
+          event.pointerType !== 'touch' ||
+          !event.isPrimary ||
+          document.querySelector('dialog[open]')
+        )
           return;
-        const bounds = row.getBoundingClientRect();
-        row.style.setProperty('--spot-x', `${event.clientX - bounds.left}px`);
-        row.style.setProperty('--spot-y', `${event.clientY - bounds.top}px`);
-        row.dataset.touch = '';
+        reset();
+        touchStart = { x: event.clientX, y: event.clientY };
+        touchFeedback(event);
       },
       { passive: true },
     );
     row.addEventListener('pointerup', reset);
     row.addEventListener('pointercancel', reset);
     window.addEventListener('scroll', reset, { passive: true });
+  });
+  function clickPulse(x: number, y: number, touch = false) {
+    if (!pulse || !enabled || reducedMotion.matches) return;
+    pulse.style.left = `${x}px`;
+    pulse.style.top = `${y}px`;
+    pulse.getAnimations().forEach((animation) => animation.cancel());
+    pulse.animate(
+      [
+        {
+          transform: 'translate(-50%, -50%) scale(0.3)',
+          opacity: touch ? 0.32 : 0.22,
+        },
+        {
+          transform: `translate(-50%, -50%) scale(${touch ? 1.8 : 1.5})`,
+          opacity: 0,
+        },
+      ],
+      { duration: 650, easing: 'ease-out' },
+    );
+  }
+  resets.push(
+    observeTouchTaps({
+      allowed: () =>
+        enabled &&
+        !reducedMotion.matches &&
+        !document.hidden &&
+        !document.querySelector('dialog[open]'),
+      accepts: (target) =>
+        target instanceof Element &&
+        !target.closest('.scene-handle, .ribbon-viewport, dialog'),
+      tap: (event) => {
+        clickPulse(event.clientX, event.clientY, true);
+        const row = (event.target as Element).closest<HTMLElement>(
+          '.repository-link, .image-stage, .tour-trigger, .button, .contact-links a, .site-header nav a',
+        );
+        if (row) touchReactions.get(row)?.(event);
+      },
+    }),
+  );
+  document.querySelectorAll('dialog').forEach((dialog) => {
+    new MutationObserver(() => {
+      if (!dialog.open) return;
+      resets.forEach((reset) => reset());
+      resetAtmosphere();
+    }).observe(dialog, { attributes: true, attributeFilter: ['open'] });
   });
 
   function configure() {
@@ -618,16 +698,7 @@ export function initializeMotion() {
         document.querySelector('dialog[open]')
       )
         return;
-      pulse.style.left = `${event.clientX}px`;
-      pulse.style.top = `${event.clientY}px`;
-      pulse.getAnimations().forEach((animation) => animation.cancel());
-      pulse.animate(
-        [
-          { transform: 'translate(-50%, -50%) scale(0.3)', opacity: 0.22 },
-          { transform: 'translate(-50%, -50%) scale(1.5)', opacity: 0 },
-        ],
-        { duration: 650, easing: 'ease-out' },
-      );
+      clickPulse(event.clientX, event.clientY);
     },
     { passive: true },
   );
@@ -635,6 +706,7 @@ export function initializeMotion() {
   window.addEventListener('blur', resetAtmosphere);
   window.addEventListener('resize', resize, { passive: true });
   window.addEventListener('scroll', updateProgress, { passive: true });
+  window.addEventListener('scroll', resetAtmosphere, { passive: true });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       cancelDrag();

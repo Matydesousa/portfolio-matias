@@ -1630,9 +1630,13 @@ html[data-motion='on'] .ambient-atmosphere[data-active] .ambient-halo {
     animation: none !important;
   }
   .ambient-grid,
-  .ambient-halo,
-  .ambient-pulse {
+  .ambient-halo {
     display: none;
+  }
+  .ambient-pulse {
+    width: 44px;
+    height: 44px;
+    box-shadow: 0 0 16px #8ab7f022;
   }
 }
 /* Touch has its own sculpture surface below the heading. Gestures starting
@@ -1960,6 +1964,12 @@ html[data-scroll-measuring]
   translate: none !important;
 }
 @media (max-width: 700px), (pointer: coarse) and (max-width: 1099px) {
+  .repository-link {
+    /* Keep the same content alignment without an overhanging hit/background
+       rectangle that WebKit projects beyond the screen during scroll depth. */
+    margin-inline: 0;
+    padding-inline: 0;
+  }
   .motion-reveal.tour-trigger {
     --depth-rise: 20px;
     --depth-z: -60px;
@@ -1970,6 +1980,12 @@ html[data-scroll-measuring]
     /* Its entrance must not extend the document's end and then clamp scroll
        while a touch gesture is releasing on the adjacent ribbon. */
     --depth-rise: 0px;
+  }
+  html[data-motion='on'][data-scroll-depth='on']:not(:has(dialog[open]))
+    .motion-reveal.contact-links:not(.is-revealed) {
+    /* Contact actions stay in place while copying email or changing focus;
+       use the entry fade and touch glow instead of a moving hit target. */
+    transform: none;
   }
   html[data-motion='on'][data-scroll-depth='on']:not(:has(dialog[open]))
     .motion-reveal:not(.is-revealed) {
@@ -2000,6 +2016,16 @@ html[data-scroll-measuring]
     .motion-reveal:not(.is-revealed)
     :is(.repository-info, .gallery-link > span, figcaption) {
     translate: 0 calc(var(--depth-distance) * 6px);
+  }
+}
+@media (pointer: coarse) and (max-width: 1099px) and (orientation: landscape) {
+  html[data-motion='on'][data-scroll-depth='on']:not(:has(dialog[open]))
+    .motion-reveal:not(.is-revealed, .contact-links) {
+    scale: calc(1 - var(--depth-distance) * 0.035);
+  }
+  html[data-motion='on'][data-scroll-depth='on']:not(:has(dialog[open]))
+    .motion-reveal.contact-links:not(.is-revealed) {
+    transform: none;
   }
 }
 .repository-link {
@@ -2051,7 +2077,9 @@ html[data-motion='on'] .repository-link[data-pointer]::before {
 html[data-motion='on'] .repository-link[data-touch]::before {
   opacity: 0.8;
 }
-.repository-link:hover::after,
+html[data-motion='on'] .repository-link[data-touch]::after {
+  transform: scaleY(1);
+}
 .repository-link:focus-visible::after {
   transform: scaleY(1);
 }
@@ -2061,6 +2089,9 @@ html[data-motion='on'] .repository-link[data-touch]::before {
     box-shadow 0.6s ease;
 }
 @media (hover: hover) and (pointer: fine) {
+  .repository-link:hover::after {
+    transform: scaleY(1);
+  }
   html[data-motion='on'] .repository-link:hover .thumbnail-frame,
   html[data-motion='on'] .repository-link:focus-visible .thumbnail-frame {
     transform: perspective(600px) translate3d(0, -3px, 14px) rotateY(-6deg)
@@ -2077,6 +2108,17 @@ html[data-motion='on'] .repository-link[data-touch]::before {
   html[data-motion='on'] .repository-link:hover .repository-thumbnail {
     transform: translate3d(0, 0, 8px);
     box-shadow: 0 12px 25px #02071366;
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  html[data-motion='on'] .repository-link[data-touch] .thumbnail-frame {
+    transform: perspective(600px) translate3d(0, -2px, 8px) rotateY(-3deg);
+  }
+  html[data-motion='on'] .repository-link[data-touch] .thumbnail-frame::before {
+    transform: translate3d(4px, 5px, -6px);
+  }
+  html[data-motion='on'] .repository-link[data-touch] .thumbnail-frame::after {
+    transform: translate3d(8px, 10px, -12px);
   }
 }
 .intro h1 {
@@ -2122,8 +2164,17 @@ html[data-motion='on'] .repository-link[data-touch]::before {
   pointer-events: none;
 }
 html[data-motion='on'] .site-header nav a[data-pointer]::before,
-html[data-motion='on'] .contact-links a[data-pointer]::before {
+html[data-motion='on'] .contact-links a[data-pointer]::before,
+html[data-motion='on'] .site-header nav a[data-touch]::before,
+html[data-motion='on'] .contact-links a[data-touch]::before {
   opacity: 1;
+}
+html[data-motion='on'] .site-header nav a[data-touch]::after {
+  transform: scaleX(1);
+}
+html[data-motion='on'] .tour-trigger[data-touch] span {
+  border-color: #91bbef;
+  box-shadow: 0 0 14px #8bb9ff30;
 }
 .tour-trigger span {
   transition:
@@ -2152,7 +2203,6 @@ html[data-motion='on'] .repository-link[data-pointer] .repository-action {
   transform: scaleX(0);
   transition: transform 0.35s;
 }
-.site-header nav a:hover::after,
 .site-header nav a:focus-visible::after {
   transform: scaleX(1);
 }
@@ -2192,8 +2242,16 @@ html[data-motion='on'] .button[data-touch]::before,
 html[data-motion='on'] .image-stage[data-touch]::after {
   opacity: 0.8;
 }
-html[data-motion='on'] .button:hover::after {
-  animation: button-reflection 0.85s ease;
+@media (hover: hover) and (pointer: fine) {
+  .site-header nav a:hover::after {
+    transform: scaleX(1);
+  }
+  html[data-motion='on'] .button:hover::after {
+    animation: button-reflection 0.85s ease;
+  }
+}
+html[data-motion='on'] .button[data-touch]::after {
+  animation: button-reflection 0.42s ease;
 }
 @keyframes button-reflection {
   to {

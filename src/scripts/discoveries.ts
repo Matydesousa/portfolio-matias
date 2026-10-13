@@ -1,4 +1,5 @@
 /** Small, opt-in discoveries. Never replace content or intercept navigation. */
+import { observeTouchTaps } from './touch-taps';
 export function initializeDiscoveries() {
   const root = document.documentElement;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
@@ -26,23 +27,24 @@ export function initializeDiscoveries() {
     !document.hidden &&
     !document.querySelector('dialog[open]');
   const touchDiscoveries = new Map<Element, () => void>();
-  const visibleThumbnails = new Set<Element>();
+  const visibleDiscoveries = new Set<Element>();
   let touchSettling: ReturnType<typeof setTimeout> | undefined;
   function refreshTouchDiscoveries() {
     cancelWait(touchSettling);
     if (finePointer.matches || !active()) return;
     // Hover discoveries become quiet arrivals once native touch scrolling stops.
     touchSettling = wait(() => {
-      visibleThumbnails.forEach((thumbnail) =>
-        touchDiscoveries.get(thumbnail)?.(),
+      visibleDiscoveries.forEach((element) =>
+        touchDiscoveries.get(element)?.(),
       );
     }, 160);
   }
-  const thumbnailObserver = new IntersectionObserver(
+  const discoveryObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (entry.intersectionRatio >= 0.7) visibleThumbnails.add(entry.target);
-        else visibleThumbnails.delete(entry.target);
+        if (entry.intersectionRatio >= 0.7)
+          visibleDiscoveries.add(entry.target);
+        else visibleDiscoveries.delete(entry.target);
       });
       refreshTouchDiscoveries();
     },
@@ -221,51 +223,12 @@ export function initializeDiscoveries() {
     if (window.getSelection()?.toString()) return;
     constellation(event.clientX, event.clientY);
   });
-  let blankTouch: { id: number; x: number; y: number } | undefined;
-  let blankTap = { time: 0, x: 0, y: 0 };
-  window.addEventListener(
-    'pointerdown',
-    (event) => {
-      if (
-        event.pointerType !== 'touch' ||
-        !event.isPrimary ||
-        !emptySurface(event.target)
-      )
-        return;
-      blankTouch = { id: event.pointerId, x: event.clientX, y: event.clientY };
-    },
-    { passive: true },
-  );
-  window.addEventListener(
-    'pointerup',
-    (event) => {
-      if (blankTouch?.id !== event.pointerId) return;
-      const start = blankTouch;
-      blankTouch = undefined;
-      if (
-        !emptySurface(event.target) ||
-        Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8
-      )
-        return;
-      const now = performance.now();
-      if (
-        blankTap.time &&
-        now - blankTap.time < 350 &&
-        Math.hypot(event.clientX - blankTap.x, event.clientY - blankTap.y) < 24
-      ) {
-        constellation(event.clientX, event.clientY);
-        blankTap.time = 0;
-      } else blankTap = { time: now, x: event.clientX, y: event.clientY };
-    },
-    { passive: true },
-  );
-  window.addEventListener(
-    'pointercancel',
-    () => {
-      blankTouch = undefined;
-      blankTap.time = 0;
-    },
-    { passive: true },
+  resets.push(
+    observeTouchTaps({
+      allowed: () => active() && !window.getSelection()?.toString(),
+      accepts: emptySurface,
+      doubleTap: (event) => constellation(event.clientX, event.clientY),
+    }),
   );
 
   document
@@ -321,7 +284,7 @@ export function initializeDiscoveries() {
       link.addEventListener('blur', reset);
       link.addEventListener('click', reset);
       touchDiscoveries.set(thumbnail, discover);
-      thumbnailObserver.observe(thumbnail);
+      discoveryObserver.observe(thumbnail);
       // Reset closure references as well as removing temporary DOM.
       resets.push(reset);
     });
@@ -385,6 +348,7 @@ export function initializeDiscoveries() {
     .querySelectorAll<HTMLAnchorElement>('.brand, .contact-links a')
     .forEach((link) => {
       const signature = link.classList.contains('brand');
+      let lastTouch = -Infinity;
       let timer: ReturnType<typeof setTimeout> | undefined;
       let drawing: SVGSVGElement | undefined;
       function reset() {
@@ -397,7 +361,7 @@ export function initializeDiscoveries() {
         drawing?.remove();
         drawing = undefined;
       }
-      function discover() {
+      function discover(delay = 450) {
         if (!active() || drawing || (timer !== undefined && timers.has(timer)))
           return;
         timer = wait(() => {
@@ -447,17 +411,39 @@ export function initializeDiscoveries() {
             { duration: 1500 },
           );
           life.addEventListener('finish', reset, { once: true });
-        }, 450);
+        }, delay);
       }
       link.addEventListener('pointerenter', (event) => {
         if (finePointer.matches && event.pointerType !== 'touch') discover();
       });
-      link.addEventListener('pointerleave', () => {
-        if (!link.matches(':focus-visible')) reset();
+      link.addEventListener('pointerleave', (event) => {
+        if (event.pointerType !== 'touch' && !link.matches(':focus-visible'))
+          reset();
       });
-      link.addEventListener('focus', discover);
+      link.addEventListener('focus', () => discover());
       link.addEventListener('blur', reset);
-      link.addEventListener('click', reset);
+      link.addEventListener(
+        'pointerdown',
+        (event) => {
+          if (event.pointerType === 'touch') lastTouch = performance.now();
+        },
+        { passive: true },
+      );
+      link.addEventListener('click', (event) => {
+        reset();
+        // Keep navigation immediate. A contact tap plays its signal on the
+        // current page (including email-copy), without waiting for hover.
+        if (
+          !signature &&
+          event.detail > 0 &&
+          performance.now() - lastTouch < 800
+        )
+          discover(0);
+      });
+      if (signature) {
+        touchDiscoveries.set(link, () => discover());
+        discoveryObserver.observe(link);
+      }
       resets.push(reset);
     });
 
@@ -688,8 +674,6 @@ export function initializeDiscoveries() {
     () => {
       clear();
       resets.forEach((reset) => reset());
-      blankTouch = undefined;
-      blankTap.time = 0;
       refreshTouchDiscoveries();
     },
     { passive: true },
