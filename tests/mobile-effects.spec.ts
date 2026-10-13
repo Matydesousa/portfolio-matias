@@ -11,6 +11,80 @@ const routes = [
   '/en/projects/oax-demo/',
 ];
 
+test('sorpresa táctil: repetición rápida, luces visibles y sin scroll', async ({
+  page,
+  context,
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Native touch swipes require CDP.');
+  test.setTimeout(150_000);
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.goto('/proyectos/oax-demo/');
+  await page.evaluate(() => document.fonts.ready);
+  const ribbon = page.locator('.project-ribbon');
+  const viewport = ribbon.locator('.ribbon-viewport');
+  await ribbon.scrollIntoViewIfNeeded();
+  await page.clock.runFor(1000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const session = await context.newCDPSession(page);
+  try {
+    await expect(ribbon).not.toHaveAttribute('data-wake');
+    for (let tone = 0; tone < 3; tone++) {
+      const box = (await viewport.boundingBox())!;
+      const y = box.y + 8;
+      if (tone) await page.touchscreen.tap(box.x + box.width / 2, y);
+      await expect(ribbon).toHaveAttribute('data-tone', String(tone));
+      const scroll = await page.evaluate(() => scrollY);
+      const start = box.x + box.width / 2 + 120;
+      const touch = (x: number) => [{ x, y, id: 1 }];
+      for (let grab = 0; grab < 4; grab++) {
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchStart',
+          touchPoints: touch(start),
+        });
+        for (let step = 1; step <= 4; step++) {
+          await page.clock.runFor(20);
+          await session.send('Input.dispatchTouchEvent', {
+            type: 'touchMove',
+            touchPoints: touch(start - step * 60),
+          });
+        }
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchEnd',
+          touchPoints: [],
+        });
+        if (grab < 2) await expect(ribbon).not.toHaveAttribute('data-wake');
+      }
+      await page.clock.runFor(300);
+      await expect(ribbon).toHaveAttribute('data-wake');
+      await expect(ribbon).toHaveAttribute('data-running', 'true');
+      await expect(ribbon).toHaveAttribute('data-tone', String(tone));
+      expect(await page.evaluate(() => scrollY)).toBe(scroll);
+      expect(
+        await ribbon
+          .locator('.ribbon-wake')
+          .evaluateAll((nodes) =>
+            nodes.some((node) => Number(getComputedStyle(node).opacity) > 0.7),
+          ),
+      ).toBe(true);
+      await ribbon.screenshot({
+        path: testInfo.outputPath(`touch-surge-${tone}.png`),
+      });
+      await page.clock.runFor(8000);
+      await expect(ribbon).not.toHaveAttribute('data-wake');
+      await expect(ribbon).toHaveAttribute('data-running', 'true');
+    }
+    await page.locator('.motion-toggle').tap();
+    await expect(ribbon.locator('.ribbon-wake').first()).toBeHidden();
+    await expect(ribbon.getByRole('link')).toHaveCount(5);
+    expect(errors).toEqual([]);
+  } finally {
+    await session.detach();
+  }
+});
+
 test('cinta móvil: caras legibles, giro tras tocar, colores y navegación en todas las vistas', async ({
   page,
 }) => {

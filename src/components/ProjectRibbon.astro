@@ -31,6 +31,38 @@ const t = getUI(locale);
         {Array.from({ length: 48 }, (_, index) => (
           <span class="ribbon-segment" data-segment={index}>
             <svg
+              class="ribbon-wake"
+              viewBox="0 0 40 120"
+              preserveAspectRatio="none"
+            >
+              <g class="wake-stream">
+                <path d="M0 -8Q18 -16 40 -8M0 128Q24 136 40 128" />
+                <path
+                  class="wake-soft"
+                  d="M0 5Q24 -2 40 5M0 115Q24 122 40 115"
+                />
+                <path
+                  class="wake-particles"
+                  d="M5 -24H15M22 -33H26M28 148H38"
+                />
+              </g>
+              <g class="wake-ion">
+                <path d="M0 -8L10 -20L22 -4L30 -16L40 -8M0 128L12 140L24 124L34 136L40 128" />
+                <path class="wake-sparks" d="M0 4H40M0 116H40" />
+                <path
+                  class="wake-particles"
+                  d="M5 -32L12 -25M22 -40L26 -36M30 148L38 156"
+                />
+              </g>
+              <g class="wake-filament">
+                <path d="M0 -6L12 -18L26 -6L40 -18M0 126L14 138L28 126L40 138" />
+                <path
+                  class="wake-particles"
+                  d="M20 -38V-22M12 -30H28M6 146L14 154M6 154L14 146"
+                />
+              </g>
+            </svg>
+            <svg
               class="ribbon-mesh"
               viewBox="0 0 40 120"
               preserveAspectRatio="none"
@@ -101,6 +133,7 @@ const t = getUI(locale);
     --card-width: 280px;
     --card-height: 192px;
     --ribbon-rgb: 139 185 255;
+    --wake-border: 0.27;
     --ribbon-top: #1d304a;
     --ribbon-bottom: #111e34;
     margin-top: 0;
@@ -109,11 +142,13 @@ const t = getUI(locale);
     z-index: 1;
   }
   .project-ribbon[data-tone='1'] {
+    --wake-border: 0.4;
     --ribbon-rgb: 116 201 255;
     --ribbon-top: #74c9ff12;
     --ribbon-bottom: #153c5f1f;
   }
   .project-ribbon[data-tone='2'] {
+    --wake-border: 0.72;
     --ribbon-rgb: 255 255 255;
   }
   .ribbon-viewport {
@@ -367,6 +402,59 @@ const t = getUI(locale);
     stroke: rgb(var(--ribbon-rgb));
     stroke-width: 0.65px;
     pointer-events: none;
+  }
+  .ribbon-wake {
+    display: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: rgb(var(--ribbon-rgb));
+    overflow: visible;
+    stroke-width: 2.5;
+    opacity: calc(var(--wake-strength, 0) * var(--wake-light, 0));
+    transform: scaleX(var(--wake-direction, 1)) scaleY(var(--wake-expansion, 1));
+    pointer-events: none;
+    filter: drop-shadow(0 0 5px rgb(var(--ribbon-rgb) / 0.9));
+  }
+  .project-ribbon[data-enhanced][data-wake] .ribbon-card {
+    border-color: rgb(
+      var(--ribbon-rgb) /
+        calc(
+          var(--wake-border) + (1 - var(--wake-border)) * var(--wake-strength) *
+            0.9
+        )
+    );
+    box-shadow:
+      0 0 24px rgb(var(--ribbon-rgb) / calc(var(--wake-strength) * 0.3)),
+      inset 0 0 16px rgb(var(--ribbon-rgb) / calc(var(--wake-strength) * 0.08));
+  }
+  .project-ribbon[data-enhanced][data-wake] .ribbon-wake {
+    display: block;
+  }
+  .ribbon-wake path {
+    vector-effect: non-scaling-stroke;
+  }
+  .ribbon-wake g {
+    display: none;
+  }
+  .project-ribbon[data-tone='0'] .wake-stream,
+  .project-ribbon[data-tone='1'] .wake-ion,
+  .project-ribbon[data-tone='2'] .wake-filament {
+    display: block;
+  }
+  .wake-soft {
+    opacity: 0.6;
+    stroke-width: 4;
+  }
+  .wake-sparks,
+  .wake-particles {
+    stroke-linecap: round;
+    stroke-width: 2;
+  }
+  .wake-filament {
+    stroke-width: 1.75;
   }
   .ribbon-triangles,
   .ribbon-circuit,

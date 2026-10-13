@@ -1,6 +1,175 @@
 import { test, expect } from '@playwright/test';
 import { RibbonPhysics } from '../src/scripts/ribbon-physics';
+import { RibbonSurge } from '../src/scripts/ribbon-surge';
 import { getProjects } from '../src/i18n/content';
+
+test('sorpresa de giro: solo varios arrastres rápidos revelan tres explosiones de luz', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(150_000);
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const ribbon = page.locator('.project-ribbon');
+  const viewport = ribbon.locator('.ribbon-viewport');
+  await ribbon.scrollIntoViewIfNeeded();
+  await page.clock.runFor(1000);
+  await expect(ribbon).not.toHaveAttribute('data-wake');
+  const box = (await viewport.boundingBox())!;
+  const y = box.y + 8;
+  const strength = () =>
+    ribbon.evaluate((el) =>
+      Number((el as HTMLElement).style.getPropertyValue('--wake-strength')),
+    );
+  const phase = () =>
+    ribbon
+      .locator('.ribbon-track')
+      .evaluate((el) =>
+        (el as HTMLElement).style.getPropertyValue('--ring-phase'),
+      );
+  const swipe = async (direction: number, fast = true) => {
+    const start = box.x + box.width / 2 - direction * 240;
+    await page.mouse.move(start, y);
+    await page.mouse.down();
+    for (let step = 1; step <= 4; step++) {
+      await page.clock.runFor(fast ? 25 : 250);
+      await page.mouse.move(start + direction * step * 120, y);
+    }
+    await page.mouse.up();
+  };
+  // Slow use, one strong throw and its inertia remain completely quiet.
+  await swipe(-1, false);
+  await expect(ribbon).not.toHaveAttribute('data-wake');
+  await swipe(-1);
+  await page.clock.runFor(1000);
+  await expect(ribbon).not.toHaveAttribute('data-wake');
+  await page.clock.runFor(3000);
+  for (let tone = 0; tone < 3; tone++) {
+    if (tone) {
+      await viewport.focus();
+      await page.keyboard.press('Enter');
+      await viewport.evaluate((el) => (el as HTMLElement).blur());
+    }
+    await expect(ribbon).toHaveAttribute('data-tone', String(tone));
+    const direction = tone === 1 ? 1 : -1;
+    for (let grab = 0; grab < 4; grab++) {
+      await swipe(direction);
+      if (grab < 2) await expect(ribbon).not.toHaveAttribute('data-wake');
+    }
+    await page.clock.runFor(300);
+    await expect(ribbon).toHaveAttribute('data-wake');
+    expect(await strength()).toBeGreaterThan(0.9);
+    expect(
+      await ribbon.evaluate((el) =>
+        (el as HTMLElement).style.getPropertyValue('--wake-direction'),
+      ),
+    ).toBe(direction > 0 ? '-1' : '1');
+    const lights = await ribbon.locator('.ribbon-wake').evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        opacity: Number(getComputedStyle(node).opacity),
+        color: getComputedStyle(node).stroke,
+        patterns: [...node.querySelectorAll('g')].map(
+          (group) => getComputedStyle(group).display !== 'none',
+        ),
+        hit: getComputedStyle(node).pointerEvents,
+      })),
+    );
+    expect(lights.some((light) => light.opacity > 0.7)).toBe(true);
+    for (const light of lights) {
+      expect(light.patterns).toEqual([tone === 0, tone === 1, tone === 2]);
+      expect(light.hit).toBe('none');
+    }
+    expect(lights[0].color).toBe(
+      ['rgb(139, 185, 255)', 'rgb(116, 201, 255)', 'rgb(255, 255, 255)'][tone],
+    );
+    await ribbon.screenshot({ path: testInfo.outputPath(`surge-${tone}.png`) });
+    // The reward continues while held, without moving the held ring itself.
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, y + 12);
+    const held = await phase();
+    const expansion = await ribbon.evaluate((el) =>
+      (el as HTMLElement).style.getPropertyValue('--wake-expansion'),
+    );
+    await page.clock.runFor(400);
+    expect(await phase()).toBe(held);
+    expect(
+      await ribbon.evaluate((el) =>
+        (el as HTMLElement).style.getPropertyValue('--wake-expansion'),
+      ),
+    ).not.toBe(expansion);
+    await page.mouse.up();
+    await page.clock.runFor(5000);
+    await expect(ribbon).not.toHaveAttribute('data-wake');
+    await expect(ribbon).toHaveAttribute('data-running', 'true');
+  }
+  await page.clock.runFor(2500);
+  for (let grab = 0; grab < 4; grab++) await swipe(-1);
+  await page.clock.runFor(300);
+  await expect(ribbon).toHaveAttribute('data-wake');
+  await page.locator('.motion-toggle').click();
+  await expect(ribbon).not.toHaveAttribute('data-wake');
+  await expect(ribbon.locator('.ribbon-wake').first()).toBeHidden();
+  await page.locator('.motion-toggle').click();
+  await ribbon.scrollIntoViewIfNeeded();
+  await page.clock.runFor(1000);
+  await expect(ribbon).not.toHaveAttribute('data-wake');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(ribbon.locator('.ribbon-wake').first()).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('sorpresa oculta: repeticiones, distancia, interrupciones y cooldown', () => {
+  const surge = new RibbonSurge();
+  let now = 100;
+  // A single long, fast grab never unlocks it.
+  surge.begin(now);
+  for (let sample = 0; sample < 40; sample++)
+    surge.drag(100, 0.05, 2000, (now += 50));
+  expect(surge.progress(now)).toBeNull();
+  surge.reset(now);
+  for (let grab = 0; grab < 10; grab++) {
+    surge.begin(now);
+    surge.drag(500, 1, 2000, (now += 1000));
+  }
+  expect(surge.progress(now)).toBeNull();
+  surge.reset(now);
+  // Insufficient distance/slow swipes do not qualify, nor do isolated attempts.
+  for (let grab = 0; grab < 6; grab++) {
+    surge.begin((now += 3000));
+    surge.drag(500, 0.05, 2000, (now += 50));
+    expect(surge.progress(now)).toBeNull();
+  }
+  surge.reset(now);
+  for (let grab = 0; grab < 3; grab++) {
+    surge.begin(now);
+    surge.drag(500, 0.05, 2000, (now += 50));
+    if (grab < 2) expect(surge.progress(now)).toBeNull();
+  }
+  expect(surge.progress(now)).toBe(0);
+  const triggered = now;
+  expect(surge.direction).toBe(-1);
+  expect(surge.progress(triggered + 2000)).toBe(0.5);
+  expect(surge.progress(triggered + 4000)).toBeNull();
+  for (let grab = 0; grab < 20; grab++) {
+    surge.begin(now);
+    surge.drag(-500, 0.05, 2000, (now += 50));
+  }
+  expect(surge.progress(now)).toBeCloseTo((now - triggered) / 4000);
+  now = triggered + 8000;
+  for (let grab = 0; grab < 3; grab++) {
+    surge.begin(now);
+    surge.drag(-500, 0.05, 2000, (now += 50));
+  }
+  expect(surge.progress(now)).toBe(0);
+  expect(surge.direction).toBe(1);
+  surge.reset(now);
+  expect(surge.progress(now)).toBeNull();
+});
 
 test('la cinta gira durante el recorrido y después de cerrar su última parada', async ({
   page,

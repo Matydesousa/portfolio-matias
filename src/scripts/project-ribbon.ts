@@ -1,4 +1,5 @@
 import { RibbonPhysics } from './ribbon-physics';
+import { RibbonSurge } from './ribbon-surge';
 import { getUI, documentLocale } from '../i18n/ui';
 
 export function initializeProjectRibbon() {
@@ -13,6 +14,7 @@ export function initializeProjectRibbon() {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
   const physics = new RibbonPhysics();
+  const surge = new RibbonSurge();
   const cards = [...track.querySelectorAll<HTMLElement>('.ribbon-card')];
   const slots = [...original.querySelectorAll<HTMLElement>('li')];
   const segments = [...track.querySelectorAll<HTMLElement>('.ribbon-segment')];
@@ -32,6 +34,9 @@ export function initializeProjectRibbon() {
   let suppressClick = false;
   let keyboardFocus = false;
   let tilt = 0;
+  let wakeIntensity = 0;
+  let wakeProgress = 0;
+  let wakeActive = false;
   const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
   let drag: {
     id: number;
@@ -61,8 +66,42 @@ export function initializeProjectRibbon() {
     pointer.x = pointer.y = pointer.targetX = pointer.targetY = 0;
     tilt = 0;
   }
+  function resetWake() {
+    wakeIntensity = 0;
+    wakeProgress = 0;
+    wakeActive = false;
+    surge.reset(performance.now());
+    ribbon.style.removeProperty('--wake-strength');
+    ribbon.style.removeProperty('--wake-direction');
+    ribbon.style.removeProperty('--wake-expansion');
+    delete ribbon.dataset.wake;
+  }
+  function updateWake() {
+    const now = performance.now();
+    const progress = surge.progress(now);
+    if (progress === null) {
+      if (wakeActive) {
+        wakeActive = false;
+        wakeIntensity = 0;
+        ribbon.style.removeProperty('--wake-strength');
+        ribbon.style.removeProperty('--wake-expansion');
+        delete ribbon.dataset.wake;
+      }
+      return;
+    }
+    wakeActive = true;
+    wakeProgress = progress;
+    // Once discovered, play a complete four-second reward, even after release.
+    // Smooth entrance/exit with a sustained bright middle, rather than flashes.
+    wakeIntensity = Math.min(1, progress / 0.06, (1 - progress) / 0.22);
+    ribbon.style.setProperty('--wake-strength', wakeIntensity.toFixed(3));
+    ribbon.style.setProperty('--wake-direction', String(surge.direction));
+    ribbon.style.setProperty('--wake-expansion', String(1 + progress * 0.5));
+    ribbon.dataset.wake = '';
+  }
   function paint() {
     if (!enhanced) return;
+    updateWake();
     viewport.scrollLeft = 0;
     const phase = cycle ? (physics.position / cycle) * Math.PI * 2 : 0;
     track.style.setProperty('--ring-phase', String(phase));
@@ -151,6 +190,23 @@ export function initializeProjectRibbon() {
         '--band-light',
         String(0.2 + Math.max(0, Math.cos(normal)) * 0.8),
       );
+      if (wakeIntensity) {
+        // Uneven pockets of light travel on the actual ellipse, including the
+        // affine mobile projection, rather than a flat halo over the cards.
+        const pocket = Math.pow(
+          Math.max(
+            0,
+            Math.cos(
+              angle * 3 - phase * 2 + wakeProgress * 18 * surge.direction,
+            ),
+          ),
+          3,
+        );
+        segment.style.setProperty(
+          '--wake-light',
+          String((0.5 + pocket * 0.5) * (0.55 + Math.max(0, cosine) * 0.45)),
+        );
+      }
       const width =
         2 * Math.sin(halfStep) * Math.hypot(x * cosine, z * sine) + 0.8;
       segment.style.setProperty('--segment-width', width + 'px');
@@ -178,6 +234,7 @@ export function initializeProjectRibbon() {
     ribbon.removeAttribute('data-dragging');
     if (cancelled || !motionAllowed()) {
       physics.stop();
+      resetWake();
       tilt = 0;
       paint();
     } else physics.release((performance.now() - current.time) / 1000);
@@ -188,24 +245,36 @@ export function initializeProjectRibbon() {
   function shouldRun() {
     return available() && motionAllowed() && !focusInside() && !drag;
   }
+  function shouldAnimate() {
+    return (
+      shouldRun() ||
+      (Boolean(drag) &&
+        available() &&
+        motionAllowed() &&
+        !focusInside() &&
+        wakeActive)
+    );
+  }
   function tick(now: number) {
     frame = 0;
-    if (!shouldRun()) return;
-    const interval = Math.abs(physics.velocity) > 80 ? 16 : 32;
+    if (!shouldAnimate()) return;
+    const interval = !drag && Math.abs(physics.velocity) > 80 ? 16 : 32;
     if (now - lastPaint >= interval) {
       const elapsed = Math.min(0.06, (now - lastFrame) / 1000);
-      physics.step(elapsed);
-      const blend = 1 - Math.exp(-elapsed / 0.14);
-      pointer.x += (pointer.targetX - pointer.x) * blend;
-      pointer.y += (pointer.targetY - pointer.y) * blend;
-      // Small vertical deflection returns gently; it cannot turn the ring over.
-      tilt *= Math.exp(-elapsed / 0.28);
+      if (!drag) {
+        physics.step(elapsed);
+        const blend = 1 - Math.exp(-elapsed / 0.14);
+        pointer.x += (pointer.targetX - pointer.x) * blend;
+        pointer.y += (pointer.targetY - pointer.y) * blend;
+        // Small vertical deflection returns gently; it cannot turn the ring over.
+        tilt *= Math.exp(-elapsed / 0.28);
+      }
       if (Math.abs(tilt) < 0.01) tilt = 0;
       lastFrame = lastPaint = now;
       wrap();
       paint();
     }
-    if (shouldRun()) frame = requestAnimationFrame(tick);
+    if (shouldAnimate()) frame = requestAnimationFrame(tick);
     else ribbon.dataset.running = 'false';
   }
   function sync() {
@@ -264,14 +333,17 @@ export function initializeProjectRibbon() {
     if ((!motionAllowed() || !available()) && !drag) {
       physics.stop();
       resetPointer();
+      resetWake();
       paint();
     }
+    if (focusInside()) resetWake();
     const run = shouldRun();
     ribbon.dataset.running = String(run);
-    if (run && !frame) {
+    const animate = shouldAnimate();
+    if (animate && !frame) {
       lastFrame = lastPaint = performance.now();
       frame = requestAnimationFrame(tick);
-    } else if (!run) {
+    } else if (!animate) {
       cancelAnimationFrame(frame);
       frame = 0;
     }
@@ -316,6 +388,7 @@ export function initializeProjectRibbon() {
     });
     wrap();
     physics.stop();
+    resetWake();
     tilt = 0;
     paint();
     sync();
@@ -376,6 +449,7 @@ export function initializeProjectRibbon() {
     if (event.pointerType === 'mouse') event.preventDefault();
     suppressClick = false;
     physics.stop();
+    surge.begin(performance.now());
     drag = {
       id: event.pointerId,
       startX: event.clientX,
@@ -406,10 +480,12 @@ export function initializeProjectRibbon() {
       event.clientX - drag.x,
       Math.min(0.08, (now - drag.time) / 1000),
     );
+    surge.drag(event.clientX - drag.x, (now - drag.time) / 1000, cycle, now);
     drag.x = event.clientX;
     drag.time = now;
     wrap();
     paint();
+    sync();
   });
   // Single-finger gestures belong to the object from their starting surface.
   // Keep a native Touch Events fallback for Safari; taps and page pinch remain native.
