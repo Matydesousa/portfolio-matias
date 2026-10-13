@@ -318,6 +318,18 @@ html[data-scene-dragging='true'] * {
   scrollbar-width: thin;
   scrollbar-color: #8ab7f080 #0c172a;
 }
+.tour-focus-landscape,
+.gallery-link img.tour-focus-landscape {
+  position: relative;
+  z-index: 1;
+  left: var(--tour-focus-shift, 0px);
+  width: var(--tour-focus-width);
+  max-width: none;
+  background: var(--background);
+}
+.gallery-link:has(.tour-focus-landscape) {
+  overflow: visible;
+}
 .tour-spotlight[tabindex] {
   pointer-events: auto;
   touch-action: none;
@@ -413,6 +425,33 @@ html[data-scene-dragging='true'] * {
   box-shadow:
     0 20px 60px #02081770,
     inset 0 1px #d3e5ff0a;
+}
+.page-tour[data-layout='landscape'] .tour-card {
+  width: var(--tour-card-width);
+  padding: 12px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.page-tour[data-layout='landscape'] .tour-card-top {
+  margin-bottom: 6px;
+}
+.page-tour[data-layout='landscape'] .tour-copy h2 {
+  font-size: 0.9375rem;
+}
+.page-tour[data-layout='landscape'] .tour-copy p {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.page-tour[data-layout='landscape'] .tour-controls {
+  margin-top: 6px;
+  padding-top: 6px;
+}
+.page-tour[data-layout='landscape'] .tour-link-slot {
+  margin-top: 4px;
+}
+.page-tour[data-layout='landscape'] .tour-follow {
+  padding-block: 0;
+  line-height: 1.25;
 }
 .tour-countdown {
   position: absolute;

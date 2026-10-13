@@ -28,6 +28,7 @@ export function initializeProjectRibbon() {
   let frame = 0;
   let lastFrame = 0;
   let lastPaint = 0;
+  let measureFrame = 0;
   let suppressClick = false;
   let keyboardFocus = false;
   let tilt = 0;
@@ -520,8 +521,17 @@ export function initializeProjectRibbon() {
     visible = entry.isIntersecting;
     sync();
   }).observe(viewport);
-  new ResizeObserver(measure).observe(viewport);
-  const textObserver = new ResizeObserver(measure);
+  // Updating ring height inside its own ResizeObserver can produce a loop in
+  // WebKit during rotation. Coalesce viewport/text changes into the next frame.
+  const scheduleMeasure = () => {
+    if (measureFrame) return;
+    measureFrame = requestAnimationFrame(() => {
+      measureFrame = 0;
+      measure();
+    });
+  };
+  new ResizeObserver(scheduleMeasure).observe(viewport);
+  const textObserver = new ResizeObserver(scheduleMeasure);
   cards.forEach((card) =>
     card
       .querySelectorAll('h3, p')
@@ -555,5 +565,9 @@ export function initializeProjectRibbon() {
     sync();
   });
   window.addEventListener('pageshow', sync);
+  window.addEventListener('pagehide', () => {
+    cancelAnimationFrame(measureFrame);
+    measureFrame = 0;
+  });
   sync();
 }

@@ -46,6 +46,7 @@ export function initializeWalkthrough() {
   let readingStartedAt = 0;
   let readingActive = false;
   let frame = 0;
+  let resizeFrame = 0;
   let scrollFrame = 0;
   let scrollVersion = 0;
   let travelling = false;
@@ -62,9 +63,20 @@ export function initializeWalkthrough() {
   }
   let painted: Geometry | undefined;
   let fitted: HTMLElement | null = null;
+  let landscape = false;
   let touchY = 0;
   const motionAllowed = () =>
     !reduced.matches && document.documentElement.dataset.motion !== 'off';
+
+  function viewportSize() {
+    const visual = window.visualViewport;
+    return {
+      // WebKit can report the previous visual width during an orientation event.
+      // Use layout width at normal scale; retain the smaller view for pinch zoom.
+      width: visual && visual.scale > 1 ? visual.width : innerWidth,
+      height: Math.min(innerHeight, visual?.height || innerHeight),
+    };
+  }
 
   function stopReading() {
     clearTimeout(timer);
@@ -136,9 +148,14 @@ export function initializeWalkthrough() {
 
   function restoreFocus() {
     if (!fitted) return;
-    fitted.classList.remove('tour-focus-image', 'tour-focus-window');
+    fitted.classList.remove(
+      'tour-focus-image',
+      'tour-focus-window',
+      'tour-focus-landscape',
+    );
     fitted.style.removeProperty('--tour-focus-width');
     fitted.style.removeProperty('--tour-focus-height');
+    fitted.style.removeProperty('--tour-focus-shift');
     fitted.scrollTop = 0;
     fitted = null;
     spotlight.removeAttribute('tabindex');
@@ -147,19 +164,89 @@ export function initializeWalkthrough() {
     spotlight.setAttribute('aria-hidden', 'true');
   }
 
+  function placeLinkSlot(inCopy: boolean) {
+    if ((linkSlot.parentElement === copy) === inCopy) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (inCopy) copy.append(linkSlot);
+    else copy.after(linkSlot);
+    if (dialog!.open && active && linkSlot.contains(active))
+      active.focus({ preventScroll: true });
+  }
+
   function fitFocus() {
     restoreFocus();
+    const { width: viewportWidth, height: viewportHeight } = viewportSize();
+    landscape =
+      viewportWidth >= 560 &&
+      viewportHeight <= 600 &&
+      viewportWidth > viewportHeight;
+    dialog!.dataset.layout = landscape ? 'landscape' : 'default';
+    if (landscape && focus) {
+      placeLinkSlot(true);
+      // A short viewport needs two reading areas, rather than stacked minima
+      // whose combined height can exceed the screen. Fit the real DOM content.
+      const fontSize = parseFloat(
+        getComputedStyle(document.documentElement).fontSize,
+      );
+      const cardWidth = Math.min(
+        viewportWidth * 0.5,
+        Math.max(230, Math.min(350, viewportWidth * 0.35), fontSize * 13),
+      );
+      dialog!.style.setProperty('--tour-card-width', `${cardWidth}px`);
+      dialog!.style.setProperty(
+        '--tour-card-height',
+        `${Math.max(0, navigation.getBoundingClientRect().top - 24)}px`,
+      );
+      const leftPadding = focus.matches(
+        '.workflow-list > li, .decision-list > li',
+      )
+        ? 28
+        : 8;
+      const contentWidth = viewportWidth - cardWidth - 48 - leftPadding - 8;
+      const contentHeight = viewportHeight - 40;
+      const image = focus.matches('img')
+        ? (focus as HTMLImageElement)
+        : focus.matches('.image-stage')
+          ? focus.querySelector<HTMLImageElement>('img')
+          : null;
+      const ratio = image
+        ? (image.naturalWidth || image.width) /
+          (image.naturalHeight || image.height)
+        : 1;
+      fitted = focus;
+      focus.style.setProperty(
+        '--tour-focus-width',
+        `${image ? Math.min(contentWidth, contentHeight * ratio) : contentWidth}px`,
+      );
+      focus.classList.add('tour-focus-landscape');
+      if (image) focus.classList.add('tour-focus-image');
+      const bounds = focus.getBoundingClientRect();
+      focus.style.setProperty(
+        '--tour-focus-shift',
+        `${12 + leftPadding - bounds.left}px`,
+      );
+      if (!image && bounds.height > contentHeight) {
+        focus.style.setProperty('--tour-focus-height', `${contentHeight}px`);
+        focus.classList.add('tour-focus-window');
+        spotlight.removeAttribute('aria-hidden');
+        spotlight.setAttribute('role', 'region');
+        spotlight.setAttribute('aria-label', t.highlighted);
+        spotlight.tabIndex = 0;
+      }
+      return;
+    }
+    placeLinkSlot(false);
+    dialog!.style.removeProperty('--tour-card-width');
     // Keep the homepage's framing; project content must be framed in full.
     if (!focus || !target?.closest('.case-main')) return;
-    const viewportWidth = window.visualViewport?.width || innerWidth;
-    const viewportHeight = Math.min(
-      window.visualViewport?.height || innerHeight,
+    const availableHeight = Math.min(
+      viewportHeight,
       navigation.getBoundingClientRect().top - 12,
     );
     const clearance = navigationClearance();
     dialog!.style.setProperty(
       '--tour-card-height',
-      `${Math.max(0, viewportHeight - 24)}px`,
+      `${Math.max(0, availableHeight - 24)}px`,
     );
     const bounds = focus.getBoundingClientRect();
     const cardWidth = card.offsetWidth;
@@ -177,19 +264,19 @@ export function initializeWalkthrough() {
       // On a narrow screen, share the space with the actual project content.
       dialog!.style.setProperty(
         '--tour-card-height',
-        `${Math.max(220, (viewportHeight - clearance - 50) * 0.55)}px`,
+        `${Math.max(220, (availableHeight - clearance - 50) * 0.55)}px`,
       );
     }
     const stackedHeight = Math.max(
       80,
-      viewportHeight - clearance - card.offsetHeight - 50,
+      availableHeight - clearance - card.offsetHeight - 50,
     );
     fitted = focus;
     if (image) {
       const ratio =
         (image.naturalWidth || image.width) /
         (image.naturalHeight || image.height);
-      const height = useSide ? viewportHeight - clearance - 20 : stackedHeight;
+      const height = useSide ? availableHeight - clearance - 20 : stackedHeight;
       const width = Math.min(
         bounds.width,
         useSide ? sideWidth : bounds.width,
@@ -198,11 +285,12 @@ export function initializeWalkthrough() {
       focus.style.setProperty('--tour-focus-width', `${width}px`);
       focus.classList.add('tour-focus-image');
     } else if (
-      bounds.height > (beside ? viewportHeight - clearance - 20 : stackedHeight)
+      bounds.height >
+      (beside ? availableHeight - clearance - 20 : stackedHeight)
     ) {
       focus.style.setProperty(
         '--tour-focus-height',
-        `${beside ? viewportHeight - clearance - 20 : stackedHeight}px`,
+        `${beside ? availableHeight - clearance - 20 : stackedHeight}px`,
       );
       focus.classList.add('tour-focus-window');
       spotlight.removeAttribute('aria-hidden');
@@ -225,9 +313,28 @@ export function initializeWalkthrough() {
 
   function measure(scrollOffset = 0): Geometry {
     const bounds = focus!.getBoundingClientRect();
+    if (landscape) {
+      const { width: viewportWidth } = viewportSize();
+      const leftPadding = focus!.matches(
+        '.workflow-list > li, .decision-list > li',
+      )
+        ? 28
+        : 8;
+      return {
+        x: bounds.left - leftPadding,
+        y: bounds.top - scrollOffset - 8,
+        width: bounds.width + leftPadding + 8,
+        height: bounds.height + 16,
+        cardX: viewportWidth - card.offsetWidth - 12,
+        cardY: 12,
+        cardWidth: card.offsetWidth,
+        cardHeight: card.offsetHeight,
+        placement: 'beside',
+      };
+    }
     // Reserve a separate, stable area for advancing, including enlarged text.
     const viewportHeight = Math.min(
-      window.visualViewport?.height || innerHeight,
+      viewportSize().height,
       navigation.getBoundingClientRect().top - 12,
     );
     if (!target?.closest('.case-main'))
@@ -235,7 +342,7 @@ export function initializeWalkthrough() {
         '--tour-card-height',
         `${Math.max(0, viewportHeight - 24 - Math.min(180, Math.max(112, viewportHeight * 0.2)))}px`,
       );
-    const viewportWidth = window.visualViewport?.width || innerWidth;
+    const viewportWidth = viewportSize().width;
     const inset = 12;
     const targetTop = bounds.top - scrollOffset;
     if (target?.closest('.case-main')) {
@@ -395,7 +502,7 @@ export function initializeWalkthrough() {
     const version = ++scrollVersion;
     fitFocus();
     const startY = window.scrollY;
-    const clearance = navigationClearance();
+    const clearance = landscape ? 20 : navigationClearance();
     const endY = Math.max(
       0,
       Math.min(
@@ -535,6 +642,8 @@ export function initializeWalkthrough() {
     resetReading();
     cancelAnimationFrame(scrollFrame);
     cancelAnimationFrame(frame);
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = 0;
     scrollVersion++;
     frame = 0;
     travelling = false;
@@ -544,6 +653,10 @@ export function initializeWalkthrough() {
     for (const details of openedDetails) details.open = false;
     openedDetails.clear();
     restoreFocus();
+    placeLinkSlot(false);
+    delete dialog!.dataset.layout;
+    dialog!.style.removeProperty('--tour-card-width');
+    dialog!.style.removeProperty('--tour-card-height');
     scrollSpace.remove();
     let focusTarget = target;
     if (focusTarget?.closest('details:not([open])'))
@@ -610,7 +723,11 @@ export function initializeWalkthrough() {
   });
   window.addEventListener('scroll', updatePosition, { passive: true });
   const resize = () => {
-    if (dialog!.open) moveToTarget(false);
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      if (dialog!.open) moveToTarget(false);
+    });
   };
   window.addEventListener('resize', resize, { passive: true });
   window.visualViewport?.addEventListener('resize', resize);
