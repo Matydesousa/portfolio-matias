@@ -515,7 +515,7 @@ export function getExperience(locale: Locale = 'es') {
           organization: 'Argentine Army',
           role: 'IT technician',
           description:
-            'Development and maintenance of internal systems as part of my work as an IT technician.',
+            'Development and maintenance of internal web applications with PHP and Laravel: routes, controllers, validation and views, using Git to track changes. I also provide technical support and troubleshoot hardware and software issues.',
         },
         {
           organization: 'OAX Sistemas',
@@ -527,7 +527,7 @@ export function getExperience(locale: Locale = 'es') {
           organization: 'UADE',
           role: 'Computer Engineering',
           description:
-            'Computer Engineering student. My academic work is also reflected in my Java, Python and C projects.',
+            'Computer Engineering student, with 11 completed courses and an overall average grade of 9. I apply my academic training to Java, Python and C projects.',
         },
       ];
 }

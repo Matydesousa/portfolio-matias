@@ -223,6 +223,9 @@ const stackGroups = [
         <a href={profile.github} target="_blank" rel="noopener noreferrer">
           GitHub<span class="sr-only">{t.newTab}</span>
         </a>
+        <a href={profile.cv[locale]} download aria-label={t.downloadCVLabel}>
+          {t.downloadCV}
+        </a>
       </div>
     </section>
   </main>

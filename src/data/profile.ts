@@ -3,6 +3,10 @@ export const profile = {
   email: 'matydesousa06@gmail.com',
   github: 'https://github.com/Matydesousa',
   linkedin: 'https://www.linkedin.com/in/matias-de-sousa-0aa180426',
+  cv: {
+    es: '/cv/Matias-De-Sousa-CV-ES.pdf',
+    en: '/cv/Matias-De-Sousa-CV-EN.pdf',
+  },
   description:
     'Matías De Sousa, Full Stack Developer y estudiante de Ingeniería Informática en UADE. Desarrollo de aplicaciones web y sistemas de gestión. Proyectos y contacto.',
   about: [
@@ -24,7 +28,7 @@ export const experience = [
     role: 'Técnico informático',
     kind: 'Experiencia',
     description:
-      'Desarrollo y mantenimiento de sistemas internos como parte de mi trabajo como técnico informático.',
+      'Desarrollo y mantenimiento de aplicaciones web internas con PHP y Laravel: rutas, controladores, validaciones y vistas, con Git para el seguimiento de cambios. También brindo soporte técnico y resuelvo incidentes de hardware y software.',
   },
   {
     organization: 'OAX Sistemas',
@@ -38,6 +42,6 @@ export const experience = [
     role: 'Ingeniería Informática',
     kind: 'Formación en curso',
     description:
-      'Estudiante de Ingeniería Informática. La formación académica también se refleja en mis proyectos con Java, Python y C.',
+      'Estudiante de Ingeniería Informática, con 11 materias aprobadas y promedio general de 9. Aplico mi formación en proyectos con Java, Python y C.',
   },
 ];
