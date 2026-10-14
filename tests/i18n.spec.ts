@@ -168,10 +168,8 @@ test('English pages and language navigation work without JavaScript', async ({
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:4321/en/');
-  await expect(page.locator('.contact-email button')).toHaveCount(0);
-  await expect(
-    page.getByRole('link', { name: 'matydesousa06@gmail.com', exact: true }),
-  ).toHaveAttribute('href', 'mailto:matydesousa06@gmail.com');
+  await expect(page.locator('.contact-email button')).toHaveCount(1);
+  await expect(page.locator('[data-copy-email]')).not.toHaveAttribute('href');
   await page.locator('.repository-link').first().click();
   await expect(page).toHaveURL(/\/en\/projects\/oax-demo\/$/);
   await expect(
@@ -204,7 +202,7 @@ test('copy email writes the correct address and confirms it in both languages', 
       name: `${label}: matydesousa06@gmail.com`,
       exact: true,
     });
-    await expect(page.locator('.contact-email button')).toHaveCount(0);
+    await expect(page.locator('.contact-email button')).toHaveCount(1);
     await expect(button).toHaveText('matydesousa06@gmail.com');
     await button.click();
     await expect(confirmationStatus).toHaveText(confirmation);

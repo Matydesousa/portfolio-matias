@@ -139,6 +139,7 @@ img {
 }
 .site-header a:hover,
 .contact-links a:hover,
+.contact-email-action:hover,
 .site-footer a:hover {
   color: var(--accent);
 }
@@ -286,8 +287,15 @@ html[data-scene-dragging='true'] * {
   height: 20px;
   border: 0;
 }
-.email-cta[role='button'] {
+.email-cta {
+  border: 0;
+  cursor: pointer;
   touch-action: manipulation;
+}
+.email-cta:focus-visible,
+.contact-email-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
 }
 .email-cta:hover {
   text-decoration: none;
@@ -913,10 +921,12 @@ summary {
   font-size: 0.875rem;
   color: var(--accent);
 }
-.contact-links a {
+.contact-links a,
+.contact-email-action {
   text-underline-offset: 5px;
 }
-.contact-links a:hover {
+.contact-links a:hover,
+.contact-email-action:hover {
   text-decoration: underline;
 }
 .contact-links {
@@ -932,13 +942,19 @@ summary {
   gap: 0 8px;
   max-width: 100%;
 }
-.contact-email a {
+.contact-email-action {
   min-width: 0;
   min-height: 44px;
   padding-block: 10px;
   overflow-wrap: anywhere;
-}
-.contact-email-action[role='button'] {
+  border: 0;
+  border-radius: 0;
+  padding-inline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   cursor: pointer;
 }
@@ -1874,7 +1890,8 @@ html[data-motion='on'] .ambient-atmosphere[data-active] .ambient-halo {
     align-items: center;
   }
   .image-expand,
-  .contact-links a {
+  .contact-links a,
+  .contact-email-action {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
@@ -2333,14 +2350,17 @@ html[data-motion='on'] .repository-link[data-touch]::after {
   position: relative;
 }
 .site-header nav a,
-.contact-links a {
+.contact-links a,
+.contact-email-action {
   isolation: isolate;
 }
-.contact-links a {
+.contact-links a,
+.contact-email-action {
   position: relative;
 }
 .site-header nav a::before,
-.contact-links a::before {
+.contact-links a::before,
+.contact-email-action::before {
   content: '';
   position: absolute;
   inset: -5px -8px;
@@ -2357,8 +2377,10 @@ html[data-motion='on'] .repository-link[data-touch]::after {
 }
 html[data-motion='on'] .site-header nav a[data-pointer]::before,
 html[data-motion='on'] .contact-links a[data-pointer]::before,
+html[data-motion='on'] .contact-email-action[data-pointer]::before,
 html[data-motion='on'] .site-header nav a[data-touch]::before,
-html[data-motion='on'] .contact-links a[data-touch]::before {
+html[data-motion='on'] .contact-links a[data-touch]::before,
+html[data-motion='on'] .contact-email-action[data-touch]::before {
   opacity: 1;
 }
 html[data-motion='on'] .site-header nav a[data-touch]::after {

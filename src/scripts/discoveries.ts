@@ -345,7 +345,9 @@ export function initializeDiscoveries() {
   });
 
   document
-    .querySelectorAll<HTMLAnchorElement>('.brand, .contact-links a')
+    .querySelectorAll<HTMLElement>(
+      '.brand, .contact-links a, .contact-email-action',
+    )
     .forEach((link) => {
       const signature = link.classList.contains('brand');
       let lastTouch = -Infinity;

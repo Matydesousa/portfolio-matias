@@ -471,7 +471,7 @@ export function initializeMotion() {
   const scrollDepth = initializeScrollDepth();
 
   const rows = document.querySelectorAll<HTMLElement>(
-    '.repository-link, .image-stage, .tour-trigger, .button, .contact-links a, .site-header nav a',
+    '.repository-link, .image-stage, .tour-trigger, .button, .contact-links a, .contact-email-action, .site-header nav a',
   );
   const resets: (() => void)[] = [];
   const touchReactions = new Map<HTMLElement, (event: PointerEvent) => void>();
@@ -607,7 +607,7 @@ export function initializeMotion() {
       tap: (event) => {
         clickPulse(event.clientX, event.clientY, true);
         const row = (event.target as Element).closest<HTMLElement>(
-          '.repository-link, .image-stage, .tour-trigger, .button, .contact-links a, .site-header nav a',
+          '.repository-link, .image-stage, .tour-trigger, .button, .contact-links a, .contact-email-action, .site-header nav a',
         );
         if (row) touchReactions.get(row)?.(event);
       },

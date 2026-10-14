@@ -62,28 +62,11 @@ const recipient = encodeURIComponent(email);
 <script>
   const dialog = document.querySelector<HTMLDialogElement>('.email-options');
   if (dialog && typeof dialog.showModal === 'function') {
-    let opener: HTMLAnchorElement | null = null;
+    let opener: HTMLButtonElement | null = null;
     document
-      .querySelectorAll<HTMLAnchorElement>('[data-email-contact]')
+      .querySelectorAll<HTMLButtonElement>('[data-email-contact]')
       .forEach((trigger) => {
-        trigger.setAttribute('role', 'button');
-        trigger.setAttribute('aria-haspopup', 'dialog');
-        trigger.setAttribute('aria-controls', dialog.id);
-        trigger.addEventListener('keydown', (event) => {
-          if (event.key !== ' ') return;
-          event.preventDefault();
-          if (!event.repeat) trigger.click();
-        });
-        trigger.addEventListener('click', (event) => {
-          if (
-            event.ctrlKey ||
-            event.metaKey ||
-            event.altKey ||
-            event.shiftKey ||
-            event.button !== 0
-          )
-            return;
-          event.preventDefault();
+        trigger.addEventListener('click', () => {
           opener = trigger;
           if (!dialog.open) dialog.showModal();
           dialog

@@ -9,10 +9,12 @@ const t = getUI(locale);
 ---
 
 <div class="contact-email">
-  <a
+  <button
     id="contact-email-link"
     class="contact-email-action"
-    href={`mailto:${email}`}
+    type="button"
+    aria-label={`${t.copyEmail}: ${email}`}
+    title={t.copyEmail}
     data-copy-email={email}
     data-label={`${t.copyEmail}: ${email}`}
     data-hint={t.copyEmail}
@@ -20,7 +22,7 @@ const t = getUI(locale);
     data-failure={t.copyFailed}
   >
     {email}
-  </a>
+  </button>
   <span
     class="email-copy-status"
     role="status"
@@ -30,24 +32,13 @@ const t = getUI(locale);
 </div>
 <script>
   document
-    .querySelectorAll<HTMLAnchorElement>('[data-copy-email]')
+    .querySelectorAll<HTMLButtonElement>('[data-copy-email]')
     .forEach((email) => {
       const status =
         email.parentElement!.querySelector<HTMLElement>('.email-copy-status')!;
       let reset: ReturnType<typeof setTimeout>;
       let busy = false;
-      email.setAttribute('role', 'button');
-      email.setAttribute('aria-label', email.dataset.label!);
-      email.title = email.dataset.hint!;
-      email.addEventListener('keydown', (event) => {
-        if (event.key !== ' ') return;
-        event.preventDefault();
-        if (!event.repeat) email.click();
-      });
-      email.addEventListener('click', async (event) => {
-        if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey)
-          return;
-        event.preventDefault();
+      email.addEventListener('click', async () => {
         if (busy) return;
         busy = true;
         clearTimeout(reset);

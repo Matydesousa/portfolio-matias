@@ -83,13 +83,15 @@ const stackGroups = [
       <p class="intro-description">{t.intro}</p>
       <p class="availability">{t.availability}</p>
       <div class="intro-actions">
-        <a
+        <button
           class="button email-cta"
-          href={`mailto:${profile.email}`}
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="email-options"
           data-email-contact
         >
           {t.contactByEmail}
-        </a>
+        </button>
         <button
           class="button button-secondary tour-trigger"
           data-tour-start
