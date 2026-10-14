@@ -27,6 +27,7 @@ const t = getUI(locale);
     role="group"
     aria-label={t.projects}
   >
+    <canvas class="ribbon-canvas" aria-hidden="true"></canvas>
     <div class="ribbon-track">
       <div class="ribbon-surface" aria-hidden="true">
         {Array.from({ length: 48 }, (_, index) => (
@@ -130,6 +131,20 @@ const t = getUI(locale);
 </script>
 
 <style>
+  .ribbon-canvas {
+    display: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .project-ribbon[data-enhanced][data-canvas-band] .ribbon-canvas {
+    display: block;
+  }
+  .project-ribbon[data-canvas-band] .ribbon-track {
+    z-index: 1;
+  }
   /* Phase is controller state, not inherited styling. Registering it avoids
      invalidating every SVG descendant whenever the ring advances. */
   @property --ring-phase {

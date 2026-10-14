@@ -1,5 +1,6 @@
 import { RibbonPhysics } from './ribbon-physics';
 import { RibbonSurge } from './ribbon-surge';
+import { MobileRibbonBand } from './mobile-ribbon-band';
 import { getUI, documentLocale } from '../i18n/ui';
 
 export function initializeProjectRibbon() {
@@ -9,10 +10,25 @@ export function initializeProjectRibbon() {
   const viewport = ribbon.querySelector<HTMLElement>('.ribbon-viewport')!;
   const track = ribbon.querySelector<HTMLElement>('.ribbon-track')!;
   const original = ribbon.querySelector<HTMLElement>('.ribbon-group')!;
+  const surface = track.querySelector<HTMLElement>('.ribbon-surface')!;
+  const bandCanvas =
+    viewport.querySelector<HTMLCanvasElement>('.ribbon-canvas')!;
   const status = ribbon.querySelector<HTMLElement>('[data-ribbon-status]')!;
   const t = getUI(documentLocale());
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
+  const mobile = matchMedia(
+    '(hover: none) and (pointer: coarse) and (max-width: 1099px)',
+  );
+  let mobileBand: MobileRibbonBand | null = null;
+  let canvasBand = false;
+  let lift = 0;
+  function restoreSurface() {
+    if (surface.parentElement !== track) track.insertBefore(surface, original);
+    ribbon.removeAttribute('data-canvas-band');
+    canvasBand = false;
+    mobileBand?.clear();
+  }
   const physics = new RibbonPhysics();
   const surge = new RibbonSurge();
   const cards = [...track.querySelectorAll<HTMLElement>('.ribbon-card')];
@@ -120,9 +136,15 @@ export function initializeProjectRibbon() {
     // Once discovered, play a complete four-second reward, even after release.
     // Smooth entrance/exit with a sustained bright middle, rather than flashes.
     wakeIntensity = Math.min(1, progress / 0.06, (1 - progress) / 0.22);
-    ribbon.style.setProperty('--wake-strength', wakeIntensity.toFixed(3));
-    ribbon.style.setProperty('--wake-direction', String(surge.direction));
-    ribbon.style.setProperty('--wake-expansion', String(1 + progress * 0.5));
+    if (canvasBand) {
+      // Only the native card glow needs a CSS update. Direction/expansion of
+      // the decorative band go straight to canvas, without inherited styles.
+      setVariable(ribbon.style, '--wake-strength', wakeIntensity.toFixed(3));
+    } else {
+      ribbon.style.setProperty('--wake-strength', wakeIntensity.toFixed(3));
+      ribbon.style.setProperty('--wake-direction', String(surge.direction));
+      ribbon.style.setProperty('--wake-expansion', String(1 + progress * 0.5));
+    }
     if (!ribbon.hasAttribute('data-wake')) ribbon.dataset.wake = '';
   }
   function paint() {
@@ -227,6 +249,27 @@ export function initializeProjectRibbon() {
     });
     const x = radiusX - 8,
       z = radiusZ - 8;
+    if (canvasBand) {
+      mobileBand!.draw({
+        phase,
+        sinPhase: phaseSin,
+        cosPhase: phaseCos,
+        sinPitch,
+        cosPitch,
+        radiusX,
+        radiusZ,
+        projected,
+        perspective: Math.max(1200, radiusX * 3),
+        lift,
+        offsetX: pointer.x * 7,
+        offsetY: pointer.y * 3 + tilt * 0.6,
+        tone: Number(ribbon.dataset.tone),
+        wakeIntensity,
+        wakeProgress,
+        wakeDirection: surge.direction,
+      });
+      return;
+    }
     activeSegments.forEach((segment, index) => {
       const unit = bandUnits[index];
       const sine = phaseSin * unit.cosine + phaseCos * unit.sine;
@@ -382,6 +425,7 @@ export function initializeProjectRibbon() {
         return;
       }
       viewport.removeAttribute('aria-describedby');
+      restoreSurface();
       ribbon.removeAttribute('data-projected');
       track.style.removeProperty('transform');
       slots.forEach((slot) => {
@@ -425,6 +469,8 @@ export function initializeProjectRibbon() {
   }
   function measure() {
     if (!enhanced) return;
+    // Templates must be connected only while sampling their scoped CSS.
+    if (surface.parentElement !== track) track.insertBefore(surface, original);
     const previous = cycle;
     cards.forEach((card) => {
       card.style.height = 'auto';
@@ -458,6 +504,7 @@ export function initializeProjectRibbon() {
     cycle = 2 * Math.PI * radiusX;
     physics.position = previous ? (physics.position * cycle) / previous : 0;
     const rise = radiusZ * Math.sin((-inclination * Math.PI) / 180);
+    lift = rise * 0.8;
     ribbon.style.setProperty('--card-height', cardHeight + 'px');
     ribbon.style.setProperty('--band-height', cardHeight * 0.68 + 'px');
     ribbon.style.setProperty('--ring-radius-x', radiusX + 'px');
@@ -466,7 +513,7 @@ export function initializeProjectRibbon() {
       '--ring-height',
       cardHeight + rise * (compact ? 2 : 1) + (compact ? 28 : 10) + 'px',
     );
-    ribbon.style.setProperty('--ring-lift', rise * 0.8 + 'px');
+    ribbon.style.setProperty('--ring-lift', lift + 'px');
     ribbon.style.setProperty(
       '--ring-perspective',
       Math.max(1200, radiusX * 3) + 'px',
@@ -474,6 +521,24 @@ export function initializeProjectRibbon() {
     cards.forEach((card) => {
       card.style.height = '';
     });
+    if (mobile.matches) {
+      mobileBand ??= new MobileRibbonBand(bandCanvas);
+      canvasBand = mobileBand.prepare(
+        ribbon,
+        activeSegments[0],
+        viewport.clientWidth,
+        viewport.clientHeight,
+        bandWidth,
+        cardHeight * 0.68,
+        activeSegments.length,
+      );
+      if (canvasBand) {
+        ribbon.dataset.canvasBand = '';
+        // Keep the original nodes for desktop/fallback, without their style
+        // inheritance/rendering cost in the active mobile document.
+        surface.remove();
+      } else restoreSurface();
+    } else restoreSurface();
     wrap();
     physics.stop();
     resetWake();
@@ -491,6 +556,7 @@ export function initializeProjectRibbon() {
   function changeColor() {
     ribbon.dataset.tone = String((Number(ribbon.dataset.tone) + 1) % 3);
     status.textContent = t.ribbonColorChanged;
+    if (canvasBand) requestPaint();
   }
   window.addEventListener(
     'pointermove',
@@ -718,6 +784,7 @@ export function initializeProjectRibbon() {
     requestPaint();
     sync();
   });
+  mobile.addEventListener('change', scheduleMeasure);
   document.addEventListener('visibilitychange', sync);
   window.addEventListener('blur', () => {
     windowActive = false;

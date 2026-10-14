@@ -28,7 +28,11 @@ test('fluidez: cuadro táctil, cambios agrupados y banda sin relayout', async ({
     .locator('.ribbon-viewport')
     .evaluate((el) => el.clientWidth < 660);
   const count = await ribbon.locator('.ribbon-segment:not([hidden])').count();
-  expect(count).toBe(compact ? 24 : 48);
+  const canvasBand = await ribbon.evaluate((el) =>
+    el.hasAttribute('data-canvas-band'),
+  );
+  expect(count).toBe(canvasBand ? 0 : compact ? 24 : 48);
+  if (canvasBand) await expect(ribbon.locator('.ribbon-canvas')).toBeVisible();
   await ribbon.evaluate((el) => {
     const track = el.querySelector<HTMLElement>('.ribbon-track')!;
     const state = window as unknown as {
@@ -115,6 +119,162 @@ test('fluidez: cuadro táctil, cambios agrupados y banda sin relayout', async ({
   ).toBe(paused);
 });
 
+test('banda móvil: raster visible, cero estilos decorativos por cuadro y cambios de modo', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+  const ribbon = page.locator('.project-ribbon');
+  const canvas = ribbon.locator('.ribbon-canvas');
+  const viewport = ribbon.locator('.ribbon-viewport');
+  await ribbon.scrollIntoViewIfNeeded();
+  await page.clock.runFor(800);
+  await expect(ribbon).toHaveAttribute('data-canvas-band');
+  await expect(ribbon.locator('.ribbon-surface')).toHaveCount(0);
+  await expect(ribbon.locator('.ribbon-card')).toHaveCount(5);
+  const raster = () =>
+    canvas.evaluate((el) => {
+      const node = el as HTMLCanvasElement;
+      const pixels = node
+        .getContext('2d')!
+        .getImageData(0, 0, node.width, node.height).data;
+      let hash = 0,
+        ink = 0;
+      for (let i = 0; i < pixels.length; i++)
+        hash = (hash * 31 + pixels[i]) | 0;
+      for (let i = 3; i < pixels.length; i += 4) if (pixels[i]) ink++;
+      return { hash, ink };
+    });
+  const first = await raster();
+  expect(first.ink).toBeGreaterThan(1000);
+  await page.evaluate(() => {
+    const state = window as unknown as { bandStyleReads: number };
+    state.bandStyleReads = 0;
+    const original = window.getComputedStyle;
+    window.getComputedStyle = (element, pseudo) => {
+      if (element.matches('.ribbon-segment, .ribbon-segment *'))
+        state.bandStyleReads++;
+      return original(element, pseudo);
+    };
+  });
+  await page.clock.runFor(320);
+  expect((await raster()).hash).not.toBe(first.hash);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { bandStyleReads: number }).bandStyleReads,
+    ),
+  ).toBe(0);
+  const phases = [];
+  for (let tone = 0; tone < 3; tone++) {
+    await viewport.focus();
+    if (tone) await page.keyboard.press('Enter');
+    await page.clock.runFor(16);
+    await expect(ribbon).toHaveAttribute('data-tone', String(tone));
+    phases.push((await raster()).hash);
+  }
+  expect(new Set(phases).size).toBe(3);
+  await viewport.evaluate((el) => (el as HTMLElement).blur());
+  const resize = async (size: { width: number; height: number }) => {
+    await page.setViewportSize(size);
+    // Windows WebKit can retain the old CSS layout viewport while changing
+    // only visualViewport (also reproduced on the baseline build). Specify
+    // the new device width in this fixture to model an actual phone rotation.
+    await page.evaluate((width) => {
+      if (document.documentElement.clientWidth !== width)
+        document
+          .querySelector('meta[name="viewport"]')!
+          .setAttribute('content', `width=${width}, initial-scale=1`);
+    }, size.width);
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(100);
+        return page.evaluate(() => document.documentElement.clientWidth);
+      })
+      .toBe(size.width);
+    await page.clock.runFor(600);
+  };
+  for (const size of [
+    { width: 428, height: 926 },
+    { width: 926, height: 428 },
+  ]) {
+    await resize(size);
+    // WebKit delivers its native viewport/ResizeObserver notifications outside
+    // the simulated RAF clock. Wait for the actual rotation before inspecting.
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(100);
+        return page.evaluate(() => innerWidth);
+      })
+      .toBe(size.width);
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(100);
+        return canvas.evaluate((el) => (el as HTMLCanvasElement).width);
+      })
+      .toBeLessThanOrEqual(size.width * 2);
+    await expect(ribbon).toHaveAttribute('data-canvas-band');
+    expect(
+      await canvas.evaluate((el) => (el as HTMLCanvasElement).width),
+    ).toBeLessThanOrEqual(size.width * 2);
+    expect((await raster()).ink).toBeGreaterThan(1000);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(size.width);
+  }
+  await resize({ width: 1200, height: 900 });
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(100);
+      return ribbon.evaluate((el) => el.hasAttribute('data-canvas-band'));
+    })
+    .toBe(false);
+  await expect(canvas).toBeHidden();
+  await expect(ribbon.locator('.ribbon-segment')).toHaveCount(48);
+  await resize({ width: 428, height: 926 });
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(100);
+      return ribbon.evaluate((el) => el.hasAttribute('data-canvas-band'));
+    })
+    .toBe(true);
+  await page.locator('.motion-toggle').tap();
+  await page.clock.runFor(100);
+  await expect(canvas).toBeHidden();
+  await expect(ribbon.getByRole('link')).toHaveCount(5);
+  expect(await canvas.evaluate((el) => (el as HTMLCanvasElement).width)).toBe(
+    0,
+  );
+  await page.locator('.motion-toggle').tap();
+  await page.clock.runFor(600);
+  await expect(canvas).toBeVisible();
+  expect((await raster()).ink).toBeGreaterThan(1000);
+});
+
+test('banda móvil: fallback SVG si canvas no está disponible', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      ...args
+    ) {
+      if (this.matches('.ribbon-canvas')) return null;
+      return Reflect.apply(original, this, args);
+    } as typeof original;
+  });
+  await page.goto('/');
+  const ribbon = page.locator('.project-ribbon');
+  await ribbon.scrollIntoViewIfNeeded();
+  await expect(ribbon).toHaveAttribute('data-enhanced');
+  await expect(ribbon).not.toHaveAttribute('data-canvas-band');
+  await expect(ribbon.locator('.ribbon-canvas')).toBeHidden();
+  await expect(ribbon.locator('.ribbon-segment').first()).toBeVisible();
+  await expect(ribbon.getByRole('link')).toHaveCount(5);
+});
+
 test('sorpresa táctil: repetición rápida, luces visibles y sin scroll', async ({
   page,
   context,
@@ -166,13 +326,23 @@ test('sorpresa táctil: repetición rápida, luces visibles y sin scroll', async
       await expect(ribbon).toHaveAttribute('data-running', 'true');
       await expect(ribbon).toHaveAttribute('data-tone', String(tone));
       expect(await page.evaluate(() => scrollY)).toBe(scroll);
+      await expect(ribbon).toHaveAttribute('data-canvas-band');
       expect(
-        await ribbon
-          .locator('.ribbon-wake')
-          .evaluateAll((nodes) =>
-            nodes.some((node) => Number(getComputedStyle(node).opacity) > 0.7),
-          ),
-      ).toBe(true);
+        await ribbon.locator('.ribbon-canvas').evaluate((node) => {
+          const canvas = node as HTMLCanvasElement;
+          const pixels = canvas
+            .getContext('2d')!
+            .getImageData(0, 0, canvas.width, canvas.height).data;
+          let energy = 0;
+          for (let i = 3; i < pixels.length; i += 4) energy += pixels[i];
+          return energy;
+        }),
+      ).toBeGreaterThan(10000);
+      expect(
+        await ribbon.evaluate((el) =>
+          Number((el as HTMLElement).style.getPropertyValue('--wake-strength')),
+        ),
+      ).toBeGreaterThan(0.9);
       await ribbon.screenshot({
         path: testInfo.outputPath(`touch-surge-${tone}.png`),
       });
@@ -211,14 +381,24 @@ test('cinta móvil: caras legibles, giro tras tocar, colores y navegación en to
       }));
       expect(size.card).toBeLessThanOrEqual(size.surface * 0.5);
       await expect(ribbon).toHaveAttribute('data-projected');
-      const curve = await ribbon
-        .locator('.ribbon-segment')
-        .evaluateAll((nodes) => {
-          const heights = nodes.map(
-            (el) => new DOMMatrix(getComputedStyle(el).transform).m42,
-          );
-          return Math.max(...heights) - Math.min(...heights);
-        });
+      const curve = await ribbon.locator('.ribbon-canvas').evaluate((node) => {
+        const canvas = node as HTMLCanvasElement;
+        const pixels = canvas
+          .getContext('2d')!
+          .getImageData(0, 0, canvas.width, canvas.height).data;
+        let top = canvas.height,
+          bottom = 0;
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            if (pixels[(y * canvas.width + x) * 4 + 3] > 20) {
+              top = Math.min(top, y);
+              bottom = Math.max(bottom, y);
+              break;
+            }
+          }
+        }
+        return bottom - top;
+      });
       expect(curve).toBeGreaterThan(20);
     }
     const tapSurface = async () => {
